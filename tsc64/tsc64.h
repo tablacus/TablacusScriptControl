@@ -35,7 +35,9 @@ private:
 	int			m_nMode;//0: Clone 1:collection 2:ScriptDispatch
 };
 
-class CTScriptControl : public IScriptControl
+class CTScriptControl : public IScriptControl, 
+	public IOleObject, public IPersistStreamInit,
+	public IOleControl
 {
 public:
 	STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject);
@@ -70,6 +72,41 @@ public:
 	STDMETHODIMP raw_Eval(BSTR Expression,VARIANT * pvarResult);
 	STDMETHODIMP raw_ExecuteStatement(BSTR Statement);
 	STDMETHODIMP raw_Run(BSTR ProcedureName,SAFEARRAY ** Parameters,VARIANT * pvarResult);
+	//IOleObject
+	STDMETHODIMP SetClientSite(IOleClientSite *pClientSite);
+	STDMETHODIMP GetClientSite(IOleClientSite **ppClientSite);
+	STDMETHODIMP SetHostNames(LPCOLESTR szContainerApp, LPCOLESTR szContainerObj);
+	STDMETHODIMP Close(DWORD dwSaveOption);
+	STDMETHODIMP SetMoniker(DWORD dwWhichMoniker, IMoniker *pmk);
+	STDMETHODIMP GetMoniker(DWORD dwAssign, DWORD dwWhichMoniker, IMoniker **ppmk);
+	STDMETHODIMP InitFromData(IDataObject *pDataObject, BOOL fCreation, DWORD dwReserved);
+	STDMETHODIMP GetClipboardData(DWORD dwReserved, IDataObject **ppDataObject);
+	STDMETHODIMP DoVerb(LONG iVerb, LPMSG lpmsg, IOleClientSite *pActiveSite, LONG lindex, HWND hwndParent, LPCRECT lprcPosRect);
+	STDMETHODIMP EnumVerbs(IEnumOLEVERB **ppEnumOleVerb);
+	STDMETHODIMP Update(void);
+	STDMETHODIMP IsUpToDate(void);
+	STDMETHODIMP GetUserClassID(CLSID *pClsid);
+	STDMETHODIMP GetUserType(DWORD dwFormOfType, LPOLESTR *pszUserType);
+	STDMETHODIMP SetExtent(DWORD dwDrawAspect, SIZEL *psizel);
+	STDMETHODIMP GetExtent(DWORD dwDrawAspect, SIZEL *psizel);
+	STDMETHODIMP Advise(IAdviseSink *pAdvSink, DWORD *pdwConnection);
+	STDMETHODIMP Unadvise(DWORD dwConnection);
+	STDMETHODIMP EnumAdvise(IEnumSTATDATA **ppenumAdvise);
+	STDMETHODIMP GetMiscStatus(DWORD dwAspect, DWORD *pdwStatus);
+	STDMETHODIMP SetColorScheme(LOGPALETTE *pLogpal);
+	//IPersist
+    STDMETHODIMP GetClassID(CLSID *pClassID);
+	//IPersistStreamInit
+	STDMETHODIMP IsDirty(void);
+	STDMETHODIMP Load(LPSTREAM pStm);
+	STDMETHODIMP Save(LPSTREAM pStm, BOOL fClearDirty);
+	STDMETHODIMP GetSizeMax(ULARGE_INTEGER *pCbSize);
+	STDMETHODIMP InitNew(void);
+	//IOleControl
+	STDMETHODIMP GetControlInfo(CONTROLINFO *pCI);
+	STDMETHODIMP OnMnemonic(MSG *pMsg);
+	STDMETHODIMP OnAmbientPropertyChange(DISPID dispID);
+	STDMETHODIMP FreezeEvents(BOOL bFreeze);
 
 	CTScriptControl();
 	~CTScriptControl();
@@ -86,6 +123,7 @@ private:
 	IDispatchEx *m_pObjectEx;
 	IDispatch *m_pCode;
 	HWND m_hwnd;
+	IOleClientSite *m_pClientSite;
 };
 
 class CteActiveScriptSite : public IActiveScriptSite, public IActiveScriptSiteWindow

@@ -1,5 +1,5 @@
 // Tablacus Script Control 64 (C)2014- Gaku
-// Version 0.0.1.0
+// Version 0.0.2.0
 // MIT Lisence
 // Visual C++ 2008 Express Edition SP1
 // Windows SDK v7.0
@@ -20,6 +20,10 @@ const TCHAR g_szClsid[] = TEXT("{0E59F1D5-1FBE-11D0-8FF2-00A0D10038BC}");
 const CLSID CLSID_TScriptServer = {0x0E59F1D5, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBD}};
 const TCHAR g_szClsid[] = TEXT("{0E59F1D5-1FBE-11D0-8FF2-00A0D10038BD}");
 #endif
+
+const CLSID IID_IScriptControl = {0x0E59F1D3, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
+const CLSID DIID_DScriptControlSource = {0x8B167D60, 0x8605, 0x11D0, {0xAB, 0xCB, 0x00, 0xA0, 0xC9, 0x0F, 0xFF, 0xC0}};
+
 const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 LONG      g_lLocks = 0;
 HINSTANCE g_hinstDll = NULL;
@@ -182,12 +186,16 @@ CTScriptControl::CTScriptControl()
 {
 	m_cRef = 1;
 	Clear();
+	m_pClientSite = NULL;
 	LockModule(TRUE);
 }
 
 CTScriptControl::~CTScriptControl()
 {
 	raw_Reset();
+	if (m_pClientSite) {
+		m_pClientSite->Release();
+	}
 	LockModule(FALSE);
 }
 
@@ -287,10 +295,23 @@ STDMETHODIMP CTScriptControl::QueryInterface(REFIID riid, void **ppvObject)
 	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IDispatch)) {
 		*ppvObject = static_cast<IDispatch *>(this);
 	}
-	else if (IsEqualIID(riid, CLSID_TScriptServer)) {
+	else if (IsEqualIID(riid, IID_IScriptControl) || IsEqualIID(riid, DIID_DScriptControlSource) ||
+		IsEqualIID(riid, CLSID_TScriptServer)) {
 		*ppvObject = static_cast<IScriptControl *>(this);
 	}
+	else if (IsEqualIID(riid, IID_IOleObject)) {
+		*ppvObject = static_cast<IOleObject *>(this);
+	}
+	else if (IsEqualIID(riid, IID_IOleControl)) {
+		*ppvObject = static_cast<IOleControl *>(this);
+	}
+	else if (IsEqualIID(riid, IID_IPersistStreamInit)) {
+		*ppvObject = static_cast<IPersistStreamInit *>(this);
+	}
 	else {
+/*		TCHAR szKey[256];
+		StringFromGUID2(riid, szKey, 40);
+		MessageBox(0,szKey,0,0);*/
 		return E_NOINTERFACE;
 	}
 	AddRef();
@@ -326,69 +347,73 @@ STDMETHODIMP CTScriptControl::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **pp
 
 STDMETHODIMP CTScriptControl::GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId)
 {
-	if (lstrcmpi(*rgszNames, L"AllowUI") == 0) {
-		*rgDispId = 0x40010001;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"CodeObject") == 0) {
-		*rgDispId = 0x40010002;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Error") == 0) {
-		*rgDispId = 0x40010003;
-		return S_OK;
-	}
 	if (lstrcmpi(*rgszNames, L"Language") == 0) {
-		*rgDispId = 0x40010004;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Modules") == 0) {
-		*rgDispId = 0x40010005;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Procedures") == 0) {
-		*rgDispId = 0x40010006;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"SitehWnd") == 0) {
-		*rgDispId = 0x40010007;
+		*rgDispId = 1500;
 		return S_OK;
 	}
 	if (lstrcmpi(*rgszNames, L"State") == 0) {
-		*rgDispId = 0x40010008;
+		*rgDispId = 1501;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"SitehWnd") == 0) {
+		*rgDispId = 1502;
 		return S_OK;
 	}
 	if (lstrcmpi(*rgszNames, L"Timeout") == 0) {
-		*rgDispId = 0x40010009;
+		*rgDispId = 1503;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"AllowUI") == 0) {
+		*rgDispId = 1504;
 		return S_OK;
 	}
 	if (lstrcmpi(*rgszNames, L"UseSafeSubset") == 0) {
-		*rgDispId = 0x4001000a;
+		*rgDispId = 1505;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"Modules") == 0) {
+		*rgDispId = 1506;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"Error") == 0) {
+		*rgDispId = 1507;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"CodeObject") == 0) {
+		*rgDispId = 1000;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"Procedures") == 0) {
+		*rgDispId = 1001;
 		return S_OK;
 	}
 	//method
-	if (lstrcmpi(*rgszNames, L"AddCode") == 0) {
-		*rgDispId = 0x60010001;
+	if (lstrcmpi(*rgszNames, L"_AboutBox") == 0) {
+		*rgDispId = -552;
 		return S_OK;
 	}
 	if (lstrcmpi(*rgszNames, L"AddObject") == 0) {
-		*rgDispId = 0x60010002;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Eval") == 0) {
-		*rgDispId = 0x60010003;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"ExecuteStatement") == 0) {
-		*rgDispId = 0x60010004;
+		*rgDispId = 2500;
 		return S_OK;
 	}
 	if (lstrcmpi(*rgszNames, L"Reset") == 0) {
-		*rgDispId = 0x60010005;
+		*rgDispId = 2501;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"AddCode") == 0) {
+		*rgDispId = 2000;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"Eval") == 0) {
+		*rgDispId = 2001;
+		return S_OK;
+	}
+	if (lstrcmpi(*rgszNames, L"ExecuteStatement") == 0) {
+		*rgDispId = 2002;
 		return S_OK;
 	}
 	if (lstrcmpi(*rgszNames, L"Run") == 0) {
-		*rgDispId = 0x60010006;
+		*rgDispId = 2003;
 		return S_OK;
 	}
 //	MessageBox(0, *rgszNames, 0, 0);
@@ -401,22 +426,8 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 	VARIANT v;
 
 	switch (dispIdMember) {
-		//AllowUI
-		case 0x40010001:
-			return S_OK;
-		//CodeObject
-		case 0x40010002:
-			if (pVarResult && m_pCode) {
-				if SUCCEEDED(m_pCode->QueryInterface(IID_PPV_ARGS(&pVarResult->pdispVal))) {
-					pVarResult->vt = VT_DISPATCH;
-				}
-			}
-			return S_OK;
-		//Error
-		case 0x40010003:
-			return S_OK;
 		//Language
-		case 0x40010004:
+		case 1500:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
 				put_Language(v.bstrVal);
@@ -427,24 +438,8 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				pVarResult->vt = VT_BSTR;
 			}
 			return S_OK;
-		//Modules
-		case 0x40010005:
-			return E_NOTIMPL;
-		//Procedures
-		case 0x40010006:
-			return E_NOTIMPL;
-		//SitehWnd
-		case 0x40010007:
-			if (nArg >= 0) {
-				put_SitehWnd(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
-			}
-			if (pVarResult) {
-				get_SitehWnd(&pVarResult->lVal);
-				pVarResult->vt = VT_I4;
-			}
-			return S_OK;
 		//State
-		case 0x40010008:
+		case 1501:
 			if (nArg >= 0) {
 				put_State((ScriptControlStates)GetIntFromVariant(&pDispParams->rgvarg[nArg]));
 			}
@@ -453,8 +448,18 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				pVarResult->vt = VT_I4;
 			}
 			return S_OK;
+		//SitehWnd
+		case 1502:
+			if (nArg >= 0) {
+				put_SitehWnd(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
+			}
+			if (pVarResult) {
+				get_SitehWnd(&pVarResult->lVal);
+				pVarResult->vt = VT_I4;
+			}
+			return S_OK;
 		//Timeout
-		case 0x40010009:
+		case 1503:
 			if (nArg >= 0) {
 				put_Timeout(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
 			}
@@ -463,19 +468,35 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				pVarResult->vt = VT_I4;
 			}
 			return S_OK;
-		//UseSafeSubset
-		case 0x4001000a:
+		//AllowUI
+		case 1504:
 			return S_OK;
-		//AddCode
-		case 0x60010001:
-			if (nArg >= 0) {
-				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
-				raw_AddCode(v.bstrVal);
-				VariantClear(&v);
+		//UseSafeSubset
+		case 1505:
+			return S_OK;
+		//Modules
+		case 1506:
+			return E_NOTIMPL;
+		//Error
+		case 1507:
+			return S_OK;
+		//CodeObject
+		case 1000:
+			if (pVarResult && m_pCode) {
+				if SUCCEEDED(m_pCode->QueryInterface(IID_PPV_ARGS(&pVarResult->pdispVal))) {
+					pVarResult->vt = VT_DISPATCH;
+				}
 			}
 			return S_OK;
+		//Procedures
+		case 1001:
+			return E_NOTIMPL;
+		//_AboutBox
+		case -552:
+			MessageBox(NULL, L"Tablacus Script Control 64", L"Tablacus", MB_ICONINFORMATION | MB_OK);
+			return S_OK;		
 		//AddObject
-		case 0x60010002:
+		case 2500:
 			if (nArg >= 1) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
 				IUnknown *punk;
@@ -488,8 +509,20 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				}
 			}
 			return S_OK;
+		//Reset
+		case 2501:
+			raw_Reset();
+			return S_OK;
+		//AddCode
+		case 2000:
+			if (nArg >= 0) {
+				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
+				raw_AddCode(v.bstrVal);
+				VariantClear(&v);
+			}
+			return S_OK;
 		//Eval
-		case 0x60010003:
+		case 2001:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
 				raw_Eval(v.bstrVal, pVarResult);
@@ -497,19 +530,15 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			}
 			return S_OK;
 		//ExecuteStatement
-		case 0x60010004:
+		case 2002:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
 				raw_ExecuteStatement(v.bstrVal);
 				VariantClear(&v);
 			}
 			return S_OK;
-		//Reset
-		case 0x60010005:
-			raw_Reset();
-			return S_OK;
 		//Run
-		case 0x60010006:
+		case 2003:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
 				SAFEARRAY *psa = NULL;
@@ -745,6 +774,178 @@ STDMETHODIMP CTScriptControl::raw_Run(BSTR ProcedureName, SAFEARRAY ** Parameter
 	if (pv2) {
 		delete [] pv2;
 	}
+	return S_OK;
+}
+
+//IOleObject
+STDMETHODIMP CTScriptControl::SetClientSite(IOleClientSite *pClientSite)
+{
+	if (pClientSite) {
+		if (m_pClientSite) {
+			m_pClientSite->Release();
+		}
+		pClientSite->QueryInterface(IID_PPV_ARGS(&m_pClientSite));
+	}
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::GetClientSite(IOleClientSite **ppClientSite)
+{
+	if (m_pClientSite) {
+		return m_pClientSite->QueryInterface(IID_PPV_ARGS(ppClientSite));
+	}
+	*ppClientSite = NULL;
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::SetHostNames(LPCOLESTR szContainerApp, LPCOLESTR szContainerObj)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::Close(DWORD dwSaveOption)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::SetMoniker(DWORD dwWhichMoniker, IMoniker *pmk)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::GetMoniker(DWORD dwAssign, DWORD dwWhichMoniker, IMoniker **ppmk)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::InitFromData(IDataObject *pDataObject, BOOL fCreation, DWORD dwReserved)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::GetClipboardData(DWORD dwReserved, IDataObject **ppDataObject)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::DoVerb(LONG iVerb, LPMSG lpmsg, IOleClientSite *pActiveSite, LONG lindex, HWND hwndParent, LPCRECT lprcPosRect)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::EnumVerbs(IEnumOLEVERB **ppEnumOleVerb)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::Update(void)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::IsUpToDate(void)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::GetUserClassID(CLSID *pClsid)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::GetUserType(DWORD dwFormOfType, LPOLESTR *pszUserType)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::SetExtent(DWORD dwDrawAspect, SIZEL *psizel)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::GetExtent(DWORD dwDrawAspect, SIZEL *psizel)
+{
+	psizel->cx = 0;
+	psizel->cy = 0;
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::Advise(IAdviseSink *pAdvSink, DWORD *pdwConnection)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::Unadvise(DWORD dwConnection)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::EnumAdvise(IEnumSTATDATA **ppenumAdvise)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::GetMiscStatus(DWORD dwAspect, DWORD *pdwStatus)
+{
+	*pdwStatus = 0;
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::SetColorScheme(LOGPALETTE *pLogpal)
+{
+	return E_NOTIMPL;
+}
+
+//IPersist
+STDMETHODIMP CTScriptControl::GetClassID(CLSID *pClassID)
+{
+	return E_NOTIMPL;
+}
+
+//IOleControl
+STDMETHODIMP CTScriptControl::GetControlInfo(CONTROLINFO *pCI)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::OnMnemonic(MSG *pMsg)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::OnAmbientPropertyChange(DISPID dispID)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::FreezeEvents(BOOL bFreeze)
+{
+	return E_NOTIMPL;
+}
+
+//IPersistStreamInit
+STDMETHODIMP CTScriptControl::IsDirty(void)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::Load(LPSTREAM pStm)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::Save(LPSTREAM pStm, BOOL fClearDirty)
+{
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptControl::GetSizeMax(ULARGE_INTEGER *pCbSize)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::InitNew(void)
+{
 	return S_OK;
 }
 
