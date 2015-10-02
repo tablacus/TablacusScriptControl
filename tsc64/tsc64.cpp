@@ -1,15 +1,9 @@
-// Tablacus Script Control 64 (C)2014- Gaku
-// Version 0.0.2.0
+// Tablacus Script Control 64 (C)2014 Gaku
 // MIT Lisence
 // Visual C++ 2008 Express Edition SP1
 // Windows SDK v7.0
 // http://www.eonet.ne.jp/~gakana/tablacus/
 
-#include <windows.h>
-#include <shlwapi.h>
-#include <ActivScp.h>
-#include <DispEx.h>
-#include <wchar.h>
 #include "tsc64.h"
 
 #pragma comment (lib, "shlwapi.lib")
@@ -27,7 +21,6 @@ const CLSID DIID_DScriptControlSource = {0x8B167D60, 0x8605, 0x11D0, {0xAB, 0xCB
 const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 LONG      g_lLocks = 0;
 HINSTANCE g_hinstDll = NULL;
-int *g_map;
 IScriptControl *pSC;
 
 
@@ -67,6 +60,46 @@ int GetIntFromVariantClear(VARIANT *pv)
 	VariantClear(pv);
 	return i;
 }
+
+LONGLONG GetLLFromVariant(VARIANT *pv)
+{
+	if (pv) {
+		if (pv->vt == (VT_VARIANT | VT_BYREF)) {
+			return GetLLFromVariant(pv->pvarVal);
+		}
+		if (pv->vt == VT_I4) {
+			return pv->lVal;
+		}
+		if (pv->vt == VT_R8) {
+			return (LONGLONG)pv->dblVal;
+		}
+		VARIANT vo;
+		VariantInit(&vo);
+		if SUCCEEDED(VariantChangeType(&vo, pv, 0, VT_I8)) {
+			return vo.llVal;
+		}
+	}
+	return 0;
+}
+
+VOID teSetLL(VARIANT *pv, LONGLONG ll)
+{
+	if (pv) {
+		pv->lVal = static_cast<int>(ll);
+		if (ll == static_cast<LONGLONG>(pv->lVal)) {
+			pv->vt = VT_I4;
+			return;
+		}
+		pv->dblVal = static_cast<DOUBLE>(ll);
+		if (ll == static_cast<LONGLONG>(pv->dblVal)) {
+			pv->vt = VT_R8;
+			return;
+		}
+		pv->llVal = ll;
+		pv->vt = VT_I8;
+	}
+}
+
 
 VARIANTARG* GetNewVARIANT(int n)
 {
@@ -117,8 +150,7 @@ HRESULT Invoke5(IDispatch *pdisp, DISPID dispid, WORD wFlags, VARIANT *pvResult,
 	if (wFlags & DISPATCH_PROPERTYPUT) {
 		dispParams.cNamedArgs = 1;
 		dispParams.rgdispidNamedArgs = &dispidName;
-	}
-	else {
+	} else {
 		dispParams.rgdispidNamedArgs = NULL;
 		dispParams.cNamedArgs = 0;
 	}
@@ -166,15 +198,7 @@ VOID teVariantChangeType(__out VARIANTARG * pvargDest,
 				__in const VARIANTARG * pvarSrc, __in VARTYPE vt)
 {
 	VariantInit(pvargDest);
-/*	if (pvarSrc->vt == (VT_ARRAY | VT_I4)) {
-		VARIANT v;
-		v.llVal = GetLLFromVariant((VARIANT *)pvarSrc);
-		v.vt = VT_I8;
-		if FAILED(VariantChangeType(pvargDest, &v, 0, vt)) {
-			pvargDest->llVal = 0;
-		}
-	}
-	else*/ if FAILED(VariantChangeType(pvargDest, pvarSrc, 0, vt)) {
+	if FAILED(VariantChangeType(pvargDest, pvarSrc, 0, vt)) {
 		pvargDest->llVal = 0;
 	}
 }
@@ -209,8 +233,7 @@ HRESULT CTScriptControl::Exec(BSTR Expression,VARIANT * pvarResult, DWORD dwFlag
 			}
 			pasp->Release();
 		}
-	}
-	else {
+	} else {
 		ParseScript(Expression, m_bsLang, m_pObjectEx, NULL, &m_pCode, &m_pActiveScript, pvarResult, dwFlags);
 	}
 	return S_OK;
@@ -280,8 +303,7 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 		}
 		if (ppas) {
 			*ppas = pas;
-		}
-		else {
+		} else {
 			pas->Release();
 		}
 	}
@@ -294,24 +316,21 @@ STDMETHODIMP CTScriptControl::QueryInterface(REFIID riid, void **ppvObject)
 
 	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IDispatch)) {
 		*ppvObject = static_cast<IDispatch *>(this);
-	}
-	else if (IsEqualIID(riid, IID_IScriptControl) || IsEqualIID(riid, DIID_DScriptControlSource) ||
+	} else if (IsEqualIID(riid, IID_IScriptControl) || IsEqualIID(riid, DIID_DScriptControlSource) ||
 		IsEqualIID(riid, CLSID_TScriptServer)) {
 		*ppvObject = static_cast<IScriptControl *>(this);
-	}
-	else if (IsEqualIID(riid, IID_IOleObject)) {
+	} else if (IsEqualIID(riid, IID_IOleObject)) {
 		*ppvObject = static_cast<IOleObject *>(this);
-	}
-	else if (IsEqualIID(riid, IID_IOleControl)) {
+	} else if (IsEqualIID(riid, IID_IOleControl)) {
 		*ppvObject = static_cast<IOleControl *>(this);
-	}
-	else if (IsEqualIID(riid, IID_IPersistStreamInit)) {
+	} else if (IsEqualIID(riid, IID_IPersistStreamInit)) {
 		*ppvObject = static_cast<IPersistStreamInit *>(this);
-	}
-	else {
-/*		TCHAR szKey[256];
+	} else {
+/*////
+		TCHAR szKey[256];
 		StringFromGUID2(riid, szKey, 40);
-		MessageBox(0,szKey,0,0);*/
+		MessageBox(0,szKey,0,0);
+////*/
 		return E_NOINTERFACE;
 	}
 	AddRef();
@@ -424,50 +443,48 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 {
 	int nArg = pDispParams ? pDispParams->cArgs - 1 : -1;
 	VARIANT v;
+	HRESULT hr = S_OK;
 
 	switch (dispIdMember) {
 		//Language
 		case 1500:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
-				put_Language(v.bstrVal);
+				hr = put_Language(v.bstrVal);
 				VariantClear(&v);
 			}
 			if (pVarResult) {
-				get_Language(&pVarResult->bstrVal);
+				hr = get_Language(&pVarResult->bstrVal);
 				pVarResult->vt = VT_BSTR;
 			}
-			return S_OK;
+			return hr;
 		//State
 		case 1501:
 			if (nArg >= 0) {
-				put_State((ScriptControlStates)GetIntFromVariant(&pDispParams->rgvarg[nArg]));
+				hr = put_State((ScriptControlStates)GetIntFromVariant(&pDispParams->rgvarg[nArg]));
 			}
 			if (pVarResult) {
-				get_State((ScriptControlStates *)&pVarResult->lVal);
+				hr = get_State((ScriptControlStates *)&pVarResult->lVal);
 				pVarResult->vt = VT_I4;
 			}
-			return S_OK;
+			return hr;
 		//SitehWnd
 		case 1502:
 			if (nArg >= 0) {
-				put_SitehWnd(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
+				m_hwnd.ll = GetLLFromVariant(&pDispParams->rgvarg[nArg]);
 			}
-			if (pVarResult) {
-				get_SitehWnd(&pVarResult->lVal);
-				pVarResult->vt = VT_I4;
-			}
-			return S_OK;
+			teSetLL(pVarResult, m_hwnd.ll);
+			return hr;
 		//Timeout
 		case 1503:
 			if (nArg >= 0) {
-				put_Timeout(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
+				hr = put_Timeout(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
 			}
 			if (pVarResult) {
-				get_Timeout(&pVarResult->lVal);
+				hr = get_Timeout(&pVarResult->lVal);
 				pVarResult->vt = VT_I4;
 			}
-			return S_OK;
+			return hr;
 		//AllowUI
 		case 1504:
 			return S_OK;
@@ -493,8 +510,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			return E_NOTIMPL;
 		//_AboutBox
 		case -552:
-			MessageBox(NULL, L"Tablacus Script Control 64", L"Tablacus", MB_ICONINFORMATION | MB_OK);
-			return S_OK;		
+			return raw__AboutBox();			
 		//AddObject
 		case 2500:
 			if (nArg >= 1) {
@@ -503,40 +519,39 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				if (FindUnknown(&pDispParams->rgvarg[nArg - 1], &punk)) {
 					IDispatch *pdisp;
 					if SUCCEEDED(punk->QueryInterface(IID_PPV_ARGS(&pdisp))) {
-						raw_AddObject(v.bstrVal, pdisp, nArg >= 2 && GetIntFromVariant(&pDispParams->rgvarg[nArg - 2]));
+						hr = raw_AddObject(v.bstrVal, pdisp, nArg >= 2 && GetIntFromVariant(&pDispParams->rgvarg[nArg - 2]));
 						pdisp->Release();
 					}
 				}
 			}
-			return S_OK;
+			return hr;
 		//Reset
 		case 2501:
-			raw_Reset();
-			return S_OK;
+			return raw_Reset();
 		//AddCode
 		case 2000:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
-				raw_AddCode(v.bstrVal);
+				hr = raw_AddCode(v.bstrVal);
 				VariantClear(&v);
 			}
-			return S_OK;
+			return hr;
 		//Eval
 		case 2001:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
-				raw_Eval(v.bstrVal, pVarResult);
+				hr = raw_Eval(v.bstrVal, pVarResult);
 				VariantClear(&v);
 			}
-			return S_OK;
+			return hr;
 		//ExecuteStatement
 		case 2002:
 			if (nArg >= 0) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
-				raw_ExecuteStatement(v.bstrVal);
+				hr = raw_ExecuteStatement(v.bstrVal);
 				VariantClear(&v);
 			}
-			return S_OK;
+			return hr;
 		//Run
 		case 2003:
 			if (nArg >= 0) {
@@ -552,13 +567,13 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 						::SafeArrayUnaccessData(psa);
 					}
 				}
-				raw_Run(v.bstrVal, &psa, pVarResult);
+				hr = raw_Run(v.bstrVal, &psa, pVarResult);
 				if (psa) {
 					::SafeArrayDestroy(psa);
 				}
 				VariantClear(&v);
 			}
-			return S_OK;
+			return hr;
 		//this
 		case DISPID_VALUE:
 			if (pVarResult) {
@@ -599,14 +614,15 @@ STDMETHODIMP CTScriptControl::put_State(enum ScriptControlStates ssState)
 
 STDMETHODIMP CTScriptControl::put_SitehWnd(long hwnd)
 {
-	m_hwnd = (HWND)hwnd;
+	m_hwnd.l[0] = hwnd;
+	m_hwnd.l[1] = 0;
 	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::get_SitehWnd(long *phwnd)
 {
-	*phwnd = (long)m_hwnd;
-	return S_OK;
+	*phwnd = m_hwnd.l[0];
+	return m_hwnd.l[1] ? E_HANDLE : S_OK;
 }
 
 STDMETHODIMP CTScriptControl::get_Timeout(long *plMilleseconds)
@@ -662,7 +678,8 @@ STDMETHODIMP CTScriptControl::get_Procedures(struct IScriptProcedureCollection *
 
 STDMETHODIMP CTScriptControl::raw__AboutBox()
 {
-	return E_NOTIMPL;
+	MessageBox(NULL, L"Tablacus Script Control 64 Version " _T(STRING(VER_Y)) L"." _T(STRING(VER_M)) L"." _T(STRING(VER_D)) L"." _T(STRING(VER_Z)), TITLE, MB_ICONINFORMATION | MB_OK);
+	return S_OK;		
 }
 
 STDMETHODIMP CTScriptControl::raw_AddObject(BSTR Name, IDispatch * Object, VARIANT_BOOL AddMembers)
@@ -709,7 +726,7 @@ VOID CTScriptControl::Clear()
 	m_pObject = NULL;
 	m_pObjectEx = NULL;
 	m_pCode = NULL;
-	m_hwnd = NULL;
+	m_hwnd.hwnd = NULL;
 }
 
 STDMETHODIMP CTScriptControl::raw_Reset()
@@ -957,8 +974,7 @@ STDMETHODIMP CTScriptControlFactory::QueryInterface(REFIID riid, void **ppvObjec
 
 	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IClassFactory)) {
 		*ppvObject = static_cast<IClassFactory *>(this);
-	}
-	else {
+	} else {
 		return E_NOINTERFACE;
 	}
 	AddRef();
@@ -1021,8 +1037,7 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 	
 	if (IsEqualCLSID(rclsid, CLSID_TScriptServer)) {
 		hr = serverFactory.QueryInterface(riid, ppv);
-	}
-	else {
+	} else {
 		hr = CLASS_E_CLASSNOTAVAILABLE;
 	}
 	return hr;
@@ -1117,14 +1132,11 @@ STDMETHODIMP CteDispatch::QueryInterface(REFIID riid, void **ppvObject)
 
 	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IDispatch)) {
 		*ppvObject = static_cast<IDispatch *>(this);
-	}
-	else if (IsEqualIID(riid, IID_IEnumVARIANT)) {
+	} else if (IsEqualIID(riid, IID_IEnumVARIANT)) {
 		*ppvObject = static_cast<IEnumVARIANT *>(this);
-	}
-	else if (m_nMode) {
+	} else if (m_nMode) {
 		return m_pDispatch->QueryInterface(riid, ppvObject);
-	}
-	else {
+	} else {
 		return E_NOINTERFACE;
 	}
 	AddRef();
@@ -1193,8 +1205,7 @@ STDMETHODIMP CteDispatch::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WO
 				if (nArg >= 1) {
 					VariantCopy(&pv[0], &pDispParams->rgvarg[nArg - 1]);
 					Invoke5(m_pDispatch, dispIdMember, DISPATCH_PROPERTYPUT, NULL, 1, pv);
-				}
-				else {
+				} else {
 					delete [] pv;
 				}
 				if (pVarResult) {
@@ -1308,11 +1319,9 @@ STDMETHODIMP CteActiveScriptSite::QueryInterface(REFIID riid, void **ppvObject)
 
 	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IActiveScriptSite)) {
 		*ppvObject = static_cast<IActiveScriptSite *>(this);
-	}
-	else if (IsEqualIID(riid, IID_IActiveScriptSiteWindow)) {
+	} else if (IsEqualIID(riid, IID_IActiveScriptSiteWindow)) {
 		*ppvObject = static_cast<IActiveScriptSiteWindow *>(this);
-	}
-	else {
+	} else {
 		return E_NOINTERFACE;
 	}
 	AddRef();
@@ -1356,8 +1365,7 @@ STDMETHODIMP CteActiveScriptSite::GetItemInfo(LPCOLESTR pstrName,
 				if (m_pDispatchEx->InvokeEx(dispid, LOCALE_USER_DEFAULT, DISPATCH_PROPERTYGET, &noargs, &v, NULL, NULL) == S_OK) {
 					if (FindUnknown(&v, ppiunkItem)) {
 						hr = S_OK;
-					}
-					else {
+					} else {
 						VariantClear(&v);
 					}
 				}
@@ -1370,7 +1378,7 @@ STDMETHODIMP CteActiveScriptSite::GetItemInfo(LPCOLESTR pstrName,
 
 STDMETHODIMP CteActiveScriptSite::GetDocVersionString(BSTR *pbstrVersion)
 {
-	*pbstrVersion = SysAllocString(L"Tablacus Script Host");
+	*pbstrVersion = SysAllocString(TITLE);
 	return S_OK;
 }
 
@@ -1391,7 +1399,7 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	TCHAR szMessage[65536];
 
 	swprintf_s(szMessage, 65536, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: %s"), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode, ei.bstrSource);
-	MessageBox(NULL, szMessage, TEXT("Tablacus Script Host"), MB_OK | MB_ICONERROR);
+	MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
 
 	return S_OK;
 }
@@ -1418,10 +1426,7 @@ STDMETHODIMP CteActiveScriptSite::OnLeaveScript(void)
 
 STDMETHODIMP CteActiveScriptSite::GetWindow(HWND *phwnd)
 {
-	*phwnd = 0;
-	if (m_pSC) {
-		m_pSC->get_SitehWnd((long *)phwnd);
-	}
+	*phwnd = m_pSC ? m_pSC->m_hwnd.hwnd : 0;
 	return S_OK;
 }
 
@@ -1437,8 +1442,7 @@ void LockModule(BOOL bLock)
 {
 	if (bLock) {
 		InterlockedIncrement(&g_lLocks);
-	}
-	else {
+	} else {
 		InterlockedDecrement(&g_lLocks);
 	}
 }
@@ -1458,8 +1462,7 @@ BOOL CreateRegistryKey(HKEY hKeyRoot, LPTSTR lpszKey, LPTSTR lpszValue, LPTSTR l
 	}
 	if (lpszData != NULL) {
 		dwSize = (lstrlen(lpszData) + 1) * sizeof(TCHAR);
-	}
-	else {
+	} else {
 		dwSize = 0;
 	}
 	RegSetValueEx(hKey, lpszValue, 0, REG_SZ, (LPBYTE)lpszData, dwSize);

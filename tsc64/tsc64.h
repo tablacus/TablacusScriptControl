@@ -1,3 +1,10 @@
+#include "resource.h"
+#include <windows.h>
+#include <shlwapi.h>
+#include <ActivScp.h>
+#include <DispEx.h>
+#include <wchar.h>
+#include <tchar.h>
 #import <msscript.ocx>
 using namespace MSScriptControl;
 
@@ -5,6 +12,12 @@ using namespace MSScriptControl;
 #define DISPID_TE_COUNT 0x3ffffffe
 #define DISPID_TE_INDEX 0x3ffffffd
 #define DISPID_TE_MAX TE_VI
+
+union TUHWND {
+	long l[2];
+	HWND hwnd;
+	LONGLONG ll;
+};
 
 class CteDispatch : public IDispatch, public IEnumVARIANT
 {
@@ -40,6 +53,8 @@ class CTScriptControl : public IScriptControl,
 	public IOleControl
 {
 public:
+	TUHWND m_hwnd;
+	//IUnknown
 	STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject);
 	STDMETHODIMP_(ULONG) AddRef();
 	STDMETHODIMP_(ULONG) Release();
@@ -122,7 +137,6 @@ private:
 	IDispatch *m_pObject;
 	IDispatchEx *m_pObjectEx;
 	IDispatch *m_pCode;
-	HWND m_hwnd;
 	IOleClientSite *m_pClientSite;
 };
 
