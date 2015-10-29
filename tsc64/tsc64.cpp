@@ -1095,7 +1095,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDll, DWORD dwReason, LPVOID lpReserved)
 
 		case DLL_PROCESS_ATTACH:
 			g_hinstDll = hinstDll;
-			DisableThreadLibraryCalls(hinstDll);
 			return TRUE;
 		}
 	return TRUE;
@@ -1456,8 +1455,8 @@ BOOL CreateRegistryKey(HKEY hKeyRoot, LPTSTR lpszKey, LPTSTR lpszValue, LPTSTR l
 
 	lResult = RegCreateKeyEx(hKeyRoot, lpszKey, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
 	if (lResult != ERROR_SUCCESS) {
-		swprintf_s(lpszKey, 16, TEXT("%x"), lResult);
-		MessageBox(NULL, (LPWSTR)lpszKey, (LPWSTR)g_szClsid, 0);
+/*		swprintf_s(lpszKey, 16, TEXT("%x"), lResult);
+		MessageBox(NULL, (LPWSTR)lpszKey, (LPWSTR)g_szClsid, 0);*/
 		return FALSE;
 	}
 	if (lpszData != NULL) {
