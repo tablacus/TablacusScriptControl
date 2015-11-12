@@ -1,8 +1,4 @@
-//{{NO_DEPENDENCIES}}
-// Microsoft Visual C++ generated include file.
-// Used by setup.rc
-//
-
+#define DLL_FILENAME	L"tsc64.dll"
 #define IDS_APP_TITLE			103
 
 #define IDR_MAINFRAME			128

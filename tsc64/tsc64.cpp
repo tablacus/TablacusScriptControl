@@ -6,23 +6,150 @@
 
 #include "tsc64.h"
 
-#pragma comment (lib, "shlwapi.lib")
+const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 #ifdef _WIN64
-const CLSID CLSID_TScriptServer = {0x0E59F1D5, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
 const TCHAR g_szClsid[] = TEXT("{0E59F1D5-1FBE-11D0-8FF2-00A0D10038BC}");
 #else
-const CLSID CLSID_TScriptServer = {0x0E59F1D5, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBD}};
-const TCHAR g_szClsid[] = TEXT("{0E59F1D5-1FBE-11D0-8FF2-00A0D10038BD}");
+const TCHAR g_szClsid[] = TEXT("{760F48FE-E6E8-4d9d-AFD4-C7B393D4211F}");//test
 #endif
 
 const CLSID IID_IScriptControl = {0x0E59F1D3, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
 const CLSID DIID_DScriptControlSource = {0x8B167D60, 0x8605, 0x11D0, {0xAB, 0xCB, 0x00, 0xA0, 0xC9, 0x0F, 0xFF, 0xC0}};
 
-const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 LONG      g_lLocks = 0;
 HINSTANCE g_hinstDll = NULL;
 IScriptControl *pSC;
+CLSID CLSID_TScriptServer;
+int		*g_map;
 
+TEmethod methodTSC[] = {
+	//property
+	{ 1500, L"Language" },
+	{ 1501, L"State" },
+	{ 1502, L"SitehWnd" },
+	{ 1503, L"Timeout" },
+	{ 1504, L"AllowUI" },
+	{ 1505, L"UseSafeSubset" },
+	{ 1506, L"Modules" },
+	{ 1507, L"Error" },
+	{ 1000, L"CodeObject" },
+	{ 1001, L"Procedures" },
+	//method
+	{ -552, L"_AboutBox" },
+	{ 2500, L"AddObject" },
+	{ 2501, L"Reset" },
+	{ 2000, L"AddCode" },
+	{ 2001, L"Eval" },
+	{ 2002, L"ExecuteStatement" },
+	{ 2003, L"Run" },
+	{ 0, NULL }
+};
+
+// Functions
+void LockModule(BOOL bLock)
+{
+	if (bLock) {
+		InterlockedIncrement(&g_lLocks);
+	} else {
+		InterlockedDecrement(&g_lLocks);
+	}
+}
+
+HRESULT ShowRegError(LSTATUS lr)
+{
+	LPTSTR lpBuffer = NULL;
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,  
+		NULL, lr, LANG_USER_DEFAULT,   
+		(LPTSTR)&lpBuffer, 0, NULL );  
+	MessageBox(NULL, lpBuffer, g_szProgid, MB_ICONHAND | MB_OK);  
+	LocalFree(lpBuffer); 
+	return HRESULT_FROM_WIN32(lr);
+}
+
+LSTATUS CreateRegistryKey(HKEY hKeyRoot, LPTSTR lpszKey, LPTSTR lpszValue, LPTSTR lpszData)
+{
+	HKEY  hKey;
+	LSTATUS  lr;
+	DWORD dwSize;
+
+	lr = RegCreateKeyEx(hKeyRoot, lpszKey, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
+	if (lr == ERROR_SUCCESS) {
+		if (lpszData != NULL) {
+			dwSize = (lstrlen(lpszData) + 1) * sizeof(TCHAR);
+		} else {
+			dwSize = 0;
+		}
+		lr = RegSetValueEx(hKey, lpszValue, 0, REG_SZ, (LPBYTE)lpszData, dwSize);
+		RegCloseKey(hKey);
+	}
+	return lr;
+}
+
+int* SortTEMethod(TEmethod *method, int nCount)
+{
+	int *pi = new int[nCount];
+
+	for (int j = 0; j < nCount; j++) {
+		BSTR bs = method[j].name;
+		int nMin = 0;
+		int nMax = j - 1;
+		int nIndex;
+		while (nMin <= nMax) {
+			nIndex = (nMin + nMax) / 2;
+			if (lstrcmpi(bs, method[pi[nIndex]].name) < 0) {
+				nMax = nIndex - 1;
+			} else {
+				nMin = nIndex + 1;
+			}
+		}
+		for (int i = j; i > nMin; i--) {
+			pi[i] = pi[i - 1];
+		}
+		pi[nMin] = j;
+	}
+	return pi;
+}
+
+int teBSearch(TEmethod *method, int nSize, int* pMap, LPOLESTR bs)
+{
+	int nMin = 0;
+	int nMax = nSize - 1;
+	int nIndex, nCC;
+
+	while (nMin <= nMax) {
+		nIndex = (nMin + nMax) / 2;
+		nCC = lstrcmpi(bs, method[pMap[nIndex]].name);
+		if (nCC < 0) {
+			nMax = nIndex - 1;
+			continue;
+		}
+		if (nCC > 0) {
+			nMin = nIndex + 1;
+			continue;
+		}
+		return pMap[nIndex];
+	}
+	return -1;
+}
+
+HRESULT teGetDispId(TEmethod *method, int nCount, int* pMap, LPOLESTR bs, DISPID *rgDispId)
+{
+	if (pMap) {
+		int nIndex = teBSearch(method, nCount, pMap, bs);
+		if (nIndex >= 0) {
+			*rgDispId = method[nIndex].id;
+			return S_OK;
+		}
+	} else {
+		for (int i = 0; method[i].name; i++) {
+			if (lstrcmpi(bs, method[i].name) == 0) {
+				*rgDispId = method[i].id;
+				return S_OK;
+			}
+		}
+	}
+	return DISP_E_UNKNOWNNAME;
+}
 
 int GetIntFromVariant(VARIANT *pv)
 {
@@ -99,7 +226,6 @@ VOID teSetLL(VARIANT *pv, LONGLONG ll)
 		pv->vt = VT_I8;
 	}
 }
-
 
 VARIANTARG* GetNewVARIANT(int n)
 {
@@ -202,7 +328,6 @@ VOID teVariantChangeType(__out VARIANTARG * pvargDest,
 		pvargDest->llVal = 0;
 	}
 }
-
 
 // CTScriptControl
 
@@ -312,30 +437,18 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 
 STDMETHODIMP CTScriptControl::QueryInterface(REFIID riid, void **ppvObject)
 {
-	*ppvObject = NULL;
-
-	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IDispatch)) {
-		*ppvObject = static_cast<IDispatch *>(this);
-	} else if (IsEqualIID(riid, IID_IScriptControl) || IsEqualIID(riid, DIID_DScriptControlSource) ||
-		IsEqualIID(riid, CLSID_TScriptServer)) {
-		*ppvObject = static_cast<IScriptControl *>(this);
-	} else if (IsEqualIID(riid, IID_IOleObject)) {
-		*ppvObject = static_cast<IOleObject *>(this);
-	} else if (IsEqualIID(riid, IID_IOleControl)) {
-		*ppvObject = static_cast<IOleControl *>(this);
-	} else if (IsEqualIID(riid, IID_IPersistStreamInit)) {
-		*ppvObject = static_cast<IPersistStreamInit *>(this);
-	} else {
-/*////
-		TCHAR szKey[256];
-		StringFromGUID2(riid, szKey, 40);
-		MessageBox(0,szKey,0,0);
-////*/
-		return E_NOINTERFACE;
-	}
-	AddRef();
-	
-	return S_OK;
+	static const QITAB qit[] =
+	{
+		QITABENT(CTScriptControl, IDispatch),
+		QITABENT(CTScriptControl, IScriptControl),
+		&DIID_DScriptControlSource, OFFSETOFCLASS(IScriptControl, CTScriptControl),
+		&CLSID_TScriptServer, OFFSETOFCLASS(IScriptControl, CTScriptControl),
+		QITABENT(CTScriptControl, IOleObject),
+		QITABENT(CTScriptControl, IOleControl),
+		QITABENT(CTScriptControl, IPersistStreamInit),
+		{ 0 },
+	};
+	return QISearch(this, qit, riid, ppvObject);
 }
 
 STDMETHODIMP_(ULONG) CTScriptControl::AddRef()
@@ -366,77 +479,7 @@ STDMETHODIMP CTScriptControl::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **pp
 
 STDMETHODIMP CTScriptControl::GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId)
 {
-	if (lstrcmpi(*rgszNames, L"Language") == 0) {
-		*rgDispId = 1500;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"State") == 0) {
-		*rgDispId = 1501;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"SitehWnd") == 0) {
-		*rgDispId = 1502;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Timeout") == 0) {
-		*rgDispId = 1503;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"AllowUI") == 0) {
-		*rgDispId = 1504;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"UseSafeSubset") == 0) {
-		*rgDispId = 1505;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Modules") == 0) {
-		*rgDispId = 1506;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Error") == 0) {
-		*rgDispId = 1507;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"CodeObject") == 0) {
-		*rgDispId = 1000;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Procedures") == 0) {
-		*rgDispId = 1001;
-		return S_OK;
-	}
-	//method
-	if (lstrcmpi(*rgszNames, L"_AboutBox") == 0) {
-		*rgDispId = -552;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"AddObject") == 0) {
-		*rgDispId = 2500;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Reset") == 0) {
-		*rgDispId = 2501;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"AddCode") == 0) {
-		*rgDispId = 2000;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Eval") == 0) {
-		*rgDispId = 2001;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"ExecuteStatement") == 0) {
-		*rgDispId = 2002;
-		return S_OK;
-	}
-	if (lstrcmpi(*rgszNames, L"Run") == 0) {
-		*rgDispId = 2003;
-		return S_OK;
-	}
-//	MessageBox(0, *rgszNames, 0, 0);
-	return DISP_E_UNKNOWNNAME;
+	return teGetDispId(methodTSC, _countof(methodTSC), g_map, *rgszNames, rgDispId);
 }
 
 STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
@@ -582,7 +625,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			return S_OK;
 	}//end_switch
 /*	TCHAR szError[16];
-	swprintf_s(szError, 16, TEXT("%x"), dispIdMember);
+	wsprintf(szError, TEXT("%x"), dispIdMember);
 	MessageBox(NULL, (LPWSTR)szError, 0, 0);*/
 	return DISP_E_MEMBERNOTFOUND;
 }
@@ -678,7 +721,7 @@ STDMETHODIMP CTScriptControl::get_Procedures(struct IScriptProcedureCollection *
 
 STDMETHODIMP CTScriptControl::raw__AboutBox()
 {
-	MessageBox(NULL, L"Tablacus Script Control 64 Version " _T(STRING(VER_Y)) L"." _T(STRING(VER_M)) L"." _T(STRING(VER_D)) L"." _T(STRING(VER_Z)), TITLE, MB_ICONINFORMATION | MB_OK);
+	MessageBox(NULL, _T(PRODUCTNAME) L" Version " _T(STRING(VER_Y)) L"." _T(STRING(VER_M)) L"." _T(STRING(VER_D)) L"." _T(STRING(VER_Z)), TITLE, MB_ICONINFORMATION | MB_OK);
 	return S_OK;		
 }
 
@@ -970,15 +1013,12 @@ STDMETHODIMP CTScriptControl::InitNew(void)
 
 STDMETHODIMP CTScriptControlFactory::QueryInterface(REFIID riid, void **ppvObject)
 {
-	*ppvObject = NULL;
-
-	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IClassFactory)) {
-		*ppvObject = static_cast<IClassFactory *>(this);
-	} else {
-		return E_NOINTERFACE;
-	}
-	AddRef();
-	return S_OK;
+	static const QITAB qit[] =
+	{
+		QITABENT(CTScriptControlFactory, IClassFactory),
+		{ 0 },
+	};
+	return QISearch(this, qit, riid, ppvObject);
 }
 
 STDMETHODIMP_(ULONG) CTScriptControlFactory::AddRef()
@@ -1048,45 +1088,50 @@ STDAPI DllRegisterServer(void)
 	TCHAR szModulePath[MAX_PATH];
 	TCHAR szKey[256];
 
-	swprintf_s(szKey, 256, TEXT("CLSID\\%s"), g_szClsid);
-	if (!CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, TEXT("Tablacus.ScriptControl"))) {
-		return E_FAIL;
+	wsprintf(szKey, TEXT("CLSID\\%s"), g_szClsid);
+	LSTATUS lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, const_cast<LPTSTR>(g_szProgid));
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
 	}
 	GetModuleFileName(g_hinstDll, szModulePath, sizeof(szModulePath) / sizeof(TCHAR));
-	swprintf_s(szKey, 256, TEXT("CLSID\\%s\\InprocServer32"), g_szClsid);
-	if (!CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, szModulePath)) {
-		return E_FAIL;
+	wsprintf(szKey, TEXT("CLSID\\%s\\InprocServer32"), g_szClsid);
+	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, szModulePath);
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
 	}
-	swprintf_s(szKey, 256, TEXT("CLSID\\%s\\InprocServer32"), g_szClsid);
-	if (!CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, TEXT("ThreadingModel"), TEXT("Apartment"))) {
-		return E_FAIL;
+	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, TEXT("ThreadingModel"), TEXT("Apartment"));
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
 	}
-	swprintf_s(szKey, 256, TEXT("CLSID\\%s\\ProgID"), g_szClsid);
-	if (!CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, (LPTSTR)g_szProgid)) {
-		return E_FAIL;
+	wsprintf(szKey, TEXT("CLSID\\%s\\ProgID"), g_szClsid);
+	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, const_cast<LPTSTR>(g_szProgid));
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
 	}
-	swprintf_s(szKey, 256, TEXT("%s"), g_szProgid);
-	if (!CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, TEXT("Tablacus Script Control 64"))) {
-		return E_FAIL;
+	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, const_cast<LPTSTR>(g_szProgid), NULL, TEXT(PRODUCTNAME));
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
 	}
-	swprintf_s(szKey, 256, TEXT("%s\\CLSID"), g_szProgid);
-	if (!CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, (LPTSTR)g_szClsid)) {
-		return E_FAIL;
+	wsprintf(szKey, TEXT("%s\\CLSID"), g_szProgid);
+	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, const_cast<LPTSTR>(g_szClsid));
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
 	}
 	return S_OK;
 }
 
 STDAPI DllUnregisterServer(void)
 {
-	TCHAR szKey[256];
-
-	swprintf_s(szKey, TEXT("CLSID\\%s"), g_szClsid);
-	SHDeleteKey(HKEY_CLASSES_ROOT, szKey);
-	
-	swprintf_s(szKey, TEXT("%s"), g_szProgid);
-	SHDeleteKey(HKEY_CLASSES_ROOT, szKey);
-
-	return S_OK;
+	TCHAR szKey[64];
+	wsprintf(szKey, TEXT("CLSID\\%s"), g_szClsid);
+	LSTATUS ls = SHDeleteKey(HKEY_CLASSES_ROOT, szKey);
+	if (ls == ERROR_SUCCESS) {
+		ls = SHDeleteKey(HKEY_CLASSES_ROOT, g_szProgid);
+		if (ls == ERROR_SUCCESS) {
+			return S_OK;
+		}
+	}
+	return ShowRegError(ls);
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDll, DWORD dwReason, LPVOID lpReserved)
@@ -1095,8 +1140,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDll, DWORD dwReason, LPVOID lpReserved)
 
 		case DLL_PROCESS_ATTACH:
 			g_hinstDll = hinstDll;
-			return TRUE;
-		}
+			CLSIDFromString(g_szClsid, &CLSID_TScriptServer);
+			g_map = SortTEMethod(methodTSC, _countof(methodTSC));
+			break;
+		case DLL_PROCESS_DETACH:
+			delete [] g_map;
+			break;
+	}
 	return TRUE;
 }
 
@@ -1127,19 +1177,20 @@ CteDispatch::~CteDispatch()
 
 STDMETHODIMP CteDispatch::QueryInterface(REFIID riid, void **ppvObject)
 {
-	*ppvObject = NULL;
-
-	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IDispatch)) {
-		*ppvObject = static_cast<IDispatch *>(this);
-	} else if (IsEqualIID(riid, IID_IEnumVARIANT)) {
-		*ppvObject = static_cast<IEnumVARIANT *>(this);
-	} else if (m_nMode) {
-		return m_pDispatch->QueryInterface(riid, ppvObject);
-	} else {
-		return E_NOINTERFACE;
+	static const QITAB qit[] =
+	{
+		QITABENT(CteDispatch, IDispatch),
+		QITABENT(CteDispatch, IEnumVARIANT),
+		{ 0 },
+	};
+	HRESULT hr = QISearch(this, qit, riid, ppvObject);
+	if SUCCEEDED(hr) {
+		return hr;
 	}
-	AddRef();
-	return S_OK;
+	if (m_nMode) {
+		return m_pDispatch->QueryInterface(riid, ppvObject);
+	}
+	return E_NOINTERFACE;
 }
 
 STDMETHODIMP_(ULONG) CteDispatch::AddRef()
@@ -1314,17 +1365,13 @@ CteActiveScriptSite::~CteActiveScriptSite()
 
 STDMETHODIMP CteActiveScriptSite::QueryInterface(REFIID riid, void **ppvObject)
 {
-	*ppvObject = NULL;
-
-	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_IActiveScriptSite)) {
-		*ppvObject = static_cast<IActiveScriptSite *>(this);
-	} else if (IsEqualIID(riid, IID_IActiveScriptSiteWindow)) {
-		*ppvObject = static_cast<IActiveScriptSiteWindow *>(this);
-	} else {
-		return E_NOINTERFACE;
-	}
-	AddRef();
-	return S_OK;
+	static const QITAB qit[] =
+	{
+		QITABENT(CteActiveScriptSite, IActiveScriptSite),
+		QITABENT(CteActiveScriptSite, IActiveScriptSiteWindow),
+		{ 0 },
+	};
+	return QISearch(this, qit, riid, ppvObject);
 }
 
 STDMETHODIMP_(ULONG) CteActiveScriptSite::AddRef()
@@ -1396,10 +1443,10 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	pscripterror->GetSourcePosition(&dwSourceContext, &ulLineNumber, &lCharacterPosition);
 	
 	TCHAR szMessage[65536];
-
-	swprintf_s(szMessage, 65536, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: %s"), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode, ei.bstrSource);
+	wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode);
+	int nLen = lstrlen(szMessage);
+	lstrcpyn(&szMessage[nLen], ei.bstrSource, 65536 - nLen);
 	MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
-
 	return S_OK;
 }
 
@@ -1432,40 +1479,4 @@ STDMETHODIMP CteActiveScriptSite::GetWindow(HWND *phwnd)
 STDMETHODIMP CteActiveScriptSite::EnableModeless(BOOL fEnable)
 {
 	return E_NOTIMPL;
-}
-
-
-// Function
-
-void LockModule(BOOL bLock)
-{
-	if (bLock) {
-		InterlockedIncrement(&g_lLocks);
-	} else {
-		InterlockedDecrement(&g_lLocks);
-	}
-}
-
-
-BOOL CreateRegistryKey(HKEY hKeyRoot, LPTSTR lpszKey, LPTSTR lpszValue, LPTSTR lpszData)
-{
-	HKEY  hKey;
-	LONG  lResult;
-	DWORD dwSize;
-
-	lResult = RegCreateKeyEx(hKeyRoot, lpszKey, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
-	if (lResult != ERROR_SUCCESS) {
-/*		swprintf_s(lpszKey, 16, TEXT("%x"), lResult);
-		MessageBox(NULL, (LPWSTR)lpszKey, (LPWSTR)g_szClsid, 0);*/
-		return FALSE;
-	}
-	if (lpszData != NULL) {
-		dwSize = (lstrlen(lpszData) + 1) * sizeof(TCHAR);
-	} else {
-		dwSize = 0;
-	}
-	RegSetValueEx(hKey, lpszValue, 0, REG_SZ, (LPBYTE)lpszData, dwSize);
-	RegCloseKey(hKey);
-	
-	return TRUE;
 }

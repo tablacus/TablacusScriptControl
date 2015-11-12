@@ -1,5 +1,8 @@
-// setup.cpp : Defines the entry point for the application.
-//
+// Tablacus Script Control 64 Installer (C)2014 Gaku
+// MIT Lisence
+// Visual C++ 2008 Express Edition SP1
+// Windows SDK v7.0
+// http://www.eonet.ne.jp/~gakana/tablacus/
 
 #include "stdafx.h"
 #include "setup.h"
@@ -134,8 +137,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	WCHAR szPath[MAX_PATH * 2];
 	WCHAR szPath2[MAX_PATH * 2];
 	HWND hInstall, hUninstall;
-    STARTUPINFO si = { sizeof(STARTUPINFO) };
-    PROCESS_INFORMATION pi;
+	SHELLEXECUTEINFO sei = { sizeof(SHELLEXECUTEINFO) };
 
 	switch (message)
 	{
@@ -170,24 +172,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		GetSystemDirectory(szRegSvr, MAX_PATH * 2);
 		PathAppend(szRegSvr, L"regsvr32.exe");
 		GetSystemDirectory(szSys32, MAX_PATH * 2);
-		PathAppend(szSys32, L"tsc64.dll");
+		PathAppend(szSys32, DLL_FILENAME);
 		GetModuleFileName(NULL, szPath, MAX_PATH * 2);
 		PathRemoveFileSpec(szPath);
-		PathAppend(szPath, L"tsc64.dll");
+		PathAppend(szPath, DLL_FILENAME);
+		sei.lpFile = szRegSvr;
+		sei.nShow = SW_SHOWNORMAL;
+
 		// Parse the menu selections:
 		switch (wmId)
 		{
 		case IDM_INSTALL:
 			CopyFile(szPath, szSys32, FALSE);
-			ShellExecute(NULL, L"RunAs", szRegSvr, szSys32, NULL, SW_SHOWNORMAL);
+			sei.lpParameters = szSys32;
+			ShellExecuteEx(&sei);
 			break;
 		case IDM_UNINSTALL:
-			lstrcpy(szPath2, L"/u ");
-			lstrcat(szPath2, szSys32);
-			si.dwFlags = STARTF_USESHOWWINDOW;
-			si.wShowWindow = SW_SHOWNORMAL;
-			::CreateProcess(szRegSvr, szPath2, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
-		    ::WaitForSingleObject(pi.hProcess, INFINITE);
+			wsprintf(szPath2, L"/u %s", szSys32);
+			sei.lpParameters = szPath2;
+			sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+			ShellExecuteEx(&sei);
+		    ::WaitForSingleObject(sei.hProcess, INFINITE);
 			DeleteFile(szSys32);
 			break;
 		case IDM_EXIT:

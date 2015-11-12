@@ -6,10 +6,10 @@
 //
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 1 VERSIONINFO
-    FILEVERSION     VER_Y,VER_M,VER_D,0
-    PRODUCTVERSION  VER_Y,VER_M,VER_D,0
+    FILEVERSION     VER_Y,VER_M,VER_D,VER_Z
+    PRODUCTVERSION  VER_Y,VER_M,VER_D,VER_Z
     FILEOS          VOS_NT_WINDOWS32
-    FILETYPE        VFT_APP
+    FILETYPE        VFT_DLL
     FILESUBTYPE     VFT2_UNKNOWN
     FILEFLAGSMASK   0x00000000
     FILEFLAGS       0x00000000
@@ -19,12 +19,12 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
         BLOCK "0400FDE9"
         {
             VALUE "CompanyName", "Tablacus\0"
-            VALUE "FileDescription", "Tablacus Script Control 64\0"
+            VALUE "FileDescription", PRODUCTNAME "\0"
             VALUE "FileVersion", STRING(VER_Y) "." STRING(VER_M) "." STRING(VER_D) "." STRING(VER_Z) "\0"
             VALUE "InternalName", "tsc64\0"
             VALUE "LegalCopyright", "(C) Gaku\0"
             VALUE "OriginalFilename", "tsc64.dll\0"
-            VALUE "ProductName", "Tablacus Script Control 64\0"
+            VALUE "ProductName", PRODUCTNAME "\0"
             VALUE "ProductVersion", STRING(VER_Y) "." STRING(VER_M) "." STRING(VER_D) "." STRING(VER_Z) "\0"
         }
     }

@@ -3,10 +3,10 @@
 #include <shlwapi.h>
 #include <ActivScp.h>
 #include <DispEx.h>
-#include <wchar.h>
 #include <tchar.h>
 #import <msscript.ocx>
 using namespace MSScriptControl;
+#pragma comment (lib, "shlwapi.lib")
 
 #define DISPID_TE_ITEM  0x3fffffff
 #define DISPID_TE_COUNT 0x3ffffffe
@@ -17,6 +17,12 @@ union TUHWND {
 	long l[2];
 	HWND hwnd;
 	LONGLONG ll;
+};
+
+struct TEmethod
+{
+	LONG   id;
+	LPWSTR name;
 };
 
 class CteDispatch : public IDispatch, public IEnumVARIANT
@@ -183,6 +189,3 @@ public:
 };
 
 const CLSID CLSID_JScriptChakra       = {0x16d51579, 0xa30b, 0x4c8b, { 0xa2, 0x76, 0x0f, 0xf4, 0xdc, 0x41, 0xe7, 0x55}}; 
-
-extern void LockModule(BOOL bLock);
-extern BOOL CreateRegistryKey(HKEY hKeyRoot, LPTSTR lpszKey, LPTSTR lpszValue, LPTSTR lpszData);
