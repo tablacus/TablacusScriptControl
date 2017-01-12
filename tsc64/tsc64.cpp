@@ -15,6 +15,7 @@ const TCHAR g_szClsid[] = TEXT("{760F48FE-E6E8-4d9d-AFD4-C7B393D4211F}");//test
 
 const CLSID IID_IScriptControl = {0x0E59F1D3, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
 const CLSID DIID_DScriptControlSource = {0x8B167D60, 0x8605, 0x11D0, {0xAB, 0xCB, 0x00, 0xA0, 0xC9, 0x0F, 0xFF, 0xC0}};
+const CLSID LIBID_TScriptControl = {0x0E59F1D2, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
 
 LONG      g_lLocks = 0;
 HINSTANCE g_hinstDll = NULL;
@@ -46,6 +47,17 @@ TEmethod methodTSC[] = {
 };
 
 // Functions
+VOID SafeRelease(PVOID ppObj)
+{
+	try {
+		IUnknown **ppunk = static_cast<IUnknown **>(ppObj);
+		if (*ppunk) {
+			(*ppunk)->Release();
+			*ppunk = NULL;
+		}
+	} catch (...) {}
+}
+
 void LockModule(BOOL bLock)
 {
 	if (bLock) {
@@ -333,18 +345,24 @@ VOID teVariantChangeType(__out VARIANTARG * pvargDest,
 
 CTScriptControl::CTScriptControl()
 {
+	ITypeLib *pTypeLib;
+
 	m_cRef = 1;
 	Clear();
 	m_pClientSite = NULL;
+	m_pTypeInfo = NULL;
+	if SUCCEEDED(LoadRegTypeLib(LIBID_TScriptControl, 1, 0, 0, &pTypeLib)) {
+		pTypeLib->GetTypeInfoOfGuid(IID_IScriptControl, &m_pTypeInfo);
+		pTypeLib->Release();
+	}
 	LockModule(TRUE);
 }
 
 CTScriptControl::~CTScriptControl()
 {
 	raw_Reset();
-	if (m_pClientSite) {
-		m_pClientSite->Release();
-	}
+	SafeRelease(&m_pClientSite);
+	SafeRelease(&m_pTypeInfo);
 	LockModule(FALSE);
 }
 
@@ -468,12 +486,17 @@ STDMETHODIMP_(ULONG) CTScriptControl::Release()
 
 STDMETHODIMP CTScriptControl::GetTypeInfoCount(UINT *pctinfo)
 {
-	*pctinfo = 0;
+	*pctinfo = m_pTypeInfo ? 1 : 0;
 	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
 {
+	if (m_pTypeInfo) {
+		m_pTypeInfo->AddRef();
+		*ppTInfo = m_pTypeInfo;
+		return S_OK;
+	}
 	return E_NOTIMPL;
 }
 
@@ -777,21 +800,11 @@ STDMETHODIMP CTScriptControl::raw_Reset()
 	if (m_bsLang) {
 		::SysFreeString(m_bsLang);
 	}
-	if (m_pCode) {
-		m_pCode->Release();
-	}
-	if (m_pObjectEx) {
-		m_pObjectEx->Release();
-	}
-	if (m_pObject) {
-		m_pObject->Release();
-	}
-	if (m_pJS) {
-		m_pJS->Release();
-	}
-	if (m_pActiveScript) {
-		m_pActiveScript->Release();
-	}
+	SafeRelease(&m_pCode);
+	SafeRelease(&m_pObjectEx);
+	SafeRelease(&m_pObject);
+	SafeRelease(&m_pJS);
+	SafeRelease(&m_pActiveScript);
 	Clear();
 	return S_OK;
 }
@@ -841,9 +854,7 @@ STDMETHODIMP CTScriptControl::raw_Run(BSTR ProcedureName, SAFEARRAY ** Parameter
 STDMETHODIMP CTScriptControl::SetClientSite(IOleClientSite *pClientSite)
 {
 	if (pClientSite) {
-		if (m_pClientSite) {
-			m_pClientSite->Release();
-		}
+		SafeRelease(&m_pClientSite);
 		pClientSite->QueryInterface(IID_PPV_ARGS(&m_pClientSite));
 	}
 	return S_OK;
@@ -1165,9 +1176,7 @@ CteDispatch::CteDispatch(IDispatch *pDispatch, int nMode)
 
 CteDispatch::~CteDispatch()
 {
-	if (m_pDispatch) {
-		m_pDispatch->Release();
-	}
+	SafeRelease(&m_pDispatch);
 	if (m_pActiveScript) {
 		m_pActiveScript->SetScriptState(SCRIPTSTATE_CLOSED);
 		m_pActiveScript->Close();
@@ -1358,9 +1367,9 @@ CteActiveScriptSite::CteActiveScriptSite(IUnknown *punk, IUnknown *pOnError, CTS
 
 CteActiveScriptSite::~CteActiveScriptSite()
 {
-	m_pSC && m_pSC->Release();
-	m_pOnError && m_pOnError->Release();
-	m_pDispatchEx && m_pDispatchEx->Release();
+	SafeRelease(&m_pSC);
+	SafeRelease(&m_pOnError);
+	SafeRelease(&m_pDispatchEx);
 }
 
 STDMETHODIMP CteActiveScriptSite::QueryInterface(REFIID riid, void **ppvObject)

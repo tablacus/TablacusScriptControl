@@ -144,6 +144,7 @@ private:
 	IDispatchEx *m_pObjectEx;
 	IDispatch *m_pCode;
 	IOleClientSite *m_pClientSite;
+	ITypeInfo *m_pTypeInfo;
 };
 
 class CteActiveScriptSite : public IActiveScriptSite, public IActiveScriptSiteWindow
