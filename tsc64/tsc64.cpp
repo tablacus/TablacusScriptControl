@@ -553,7 +553,14 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			return hr;
 		//AllowUI
 		case 1504:
-			return S_OK;
+			if (nArg >= 0) {
+				hr = put_AllowUI(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
+			}
+			if (pVarResult) {
+				hr = get_AllowUI(&pVarResult->boolVal);
+				pVarResult->vt = VT_I4;
+			}
+			return hr;
 		//UseSafeSubset
 		case 1505:
 			return S_OK;
@@ -704,12 +711,14 @@ STDMETHODIMP CTScriptControl::put_Timeout(long lMilleseconds)
 
 STDMETHODIMP CTScriptControl::get_AllowUI(VARIANT_BOOL * pfAllowUI)
 {
-	return E_NOTIMPL;
+	pfAllowUI = &AllowUI;
+	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::put_AllowUI(VARIANT_BOOL pfAllowUI)
 {
-	return E_NOTIMPL;
+	AllowUI = pfAllowUI;
+	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::get_UseSafeSubset(VARIANT_BOOL * pfUseSafeSubset)
@@ -1455,7 +1464,14 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode);
 	int nLen = lstrlen(szMessage);
 	lstrcpyn(&szMessage[nLen], ei.bstrSource, 65536 - nLen);
-	MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
+	if (this->m_pSC->AllowUI)
+	{
+		MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
+	}
+	else
+	{
+		throw pscripterror;
+	}
 	return S_OK;
 }
 
