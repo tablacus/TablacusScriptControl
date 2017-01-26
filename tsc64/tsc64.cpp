@@ -351,6 +351,7 @@ CTScriptControl::CTScriptControl()
 	Clear();
 	m_pClientSite = NULL;
 	m_pTypeInfo = NULL;
+	AllowUI = FALSE;
 	if SUCCEEDED(LoadRegTypeLib(LIBID_TScriptControl, 1, 0, 0, &pTypeLib)) {
 		pTypeLib->GetTypeInfoOfGuid(IID_IScriptControl, &m_pTypeInfo);
 		pTypeLib->Release();
@@ -368,6 +369,7 @@ CTScriptControl::~CTScriptControl()
 
 HRESULT CTScriptControl::Exec(BSTR Expression,VARIANT * pvarResult, DWORD dwFlags)
 {
+	m_hr = S_OK;
 	if (m_pActiveScript) {
 		IActiveScriptParse *pasp;
 		if SUCCEEDED(m_pActiveScript->QueryInterface(IID_PPV_ARGS(&pasp))) {
@@ -379,7 +381,7 @@ HRESULT CTScriptControl::Exec(BSTR Expression,VARIANT * pvarResult, DWORD dwFlag
 	} else {
 		ParseScript(Expression, m_bsLang, m_pObjectEx, NULL, &m_pCode, &m_pActiveScript, pvarResult, dwFlags);
 	}
-	return S_OK;
+	return m_hr;
 }
 
 HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispatchEx *pdex, IUnknown *pOnError, IDispatch **ppdisp, IActiveScript **ppas, VARIANT *pvarResult, DWORD dwFlags)
@@ -510,6 +512,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 	int nArg = pDispParams ? pDispParams->cArgs - 1 : -1;
 	VARIANT v;
 	HRESULT hr = S_OK;
+	m_pEI = pExcepInfo;
 
 	switch (dispIdMember) {
 		//Language
@@ -558,7 +561,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			}
 			if (pVarResult) {
 				hr = get_AllowUI(&pVarResult->boolVal);
-				pVarResult->vt = VT_I4;
+				pVarResult->vt = VT_BOOL;
 			}
 			return hr;
 		//UseSafeSubset
@@ -711,13 +714,13 @@ STDMETHODIMP CTScriptControl::put_Timeout(long lMilleseconds)
 
 STDMETHODIMP CTScriptControl::get_AllowUI(VARIANT_BOOL * pfAllowUI)
 {
-	pfAllowUI = &AllowUI;
+	*pfAllowUI = AllowUI;
 	return S_OK;
 }
 
-STDMETHODIMP CTScriptControl::put_AllowUI(VARIANT_BOOL pfAllowUI)
+STDMETHODIMP CTScriptControl::put_AllowUI(VARIANT_BOOL  fAllowUI)
 {
-	AllowUI = pfAllowUI;
+	AllowUI = fAllowUI;
 	return S_OK;
 }
 
@@ -1451,26 +1454,30 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	if (!pscripterror) {
 		return E_POINTER;
 	}
-	EXCEPINFO ei;
-	BSTR bs = NULL;
-	DWORD dwSourceContext = 0;
-    DWORD ulLineNumber = 0;
-    LONG lCharacterPosition = 0;
-	pscripterror->GetExceptionInfo(&ei);
-	pscripterror->GetSourceLineText(&bs);
-	pscripterror->GetSourcePosition(&dwSourceContext, &ulLineNumber, &lCharacterPosition);
-	
-	TCHAR szMessage[65536];
-	wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode);
-	int nLen = lstrlen(szMessage);
-	lstrcpyn(&szMessage[nLen], ei.bstrSource, 65536 - nLen);
 	if (this->m_pSC->AllowUI)
 	{
+		EXCEPINFO ei;
+//		BSTR bs = NULL;
+		DWORD dwSourceContext = 0;
+		DWORD ulLineNumber = 0;
+		LONG lCharacterPosition = 0;
+		pscripterror->GetExceptionInfo(&ei);
+//		pscripterror->GetSourceLineText(&bs);
+		pscripterror->GetSourcePosition(&dwSourceContext, &ulLineNumber, &lCharacterPosition);
+	
+		TCHAR szMessage[65536];
+		wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode);
+		int nLen = lstrlen(szMessage);
+		lstrcpyn(&szMessage[nLen], ei.bstrSource, 65536 - nLen);
 		MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
 	}
 	else
 	{
-		throw pscripterror;
+		if (m_pSC->m_pEI) {
+			pscripterror->GetExceptionInfo(m_pSC->m_pEI);
+			m_pSC->m_hr = m_pSC->m_pEI->scode | 0x80000000;
+		}
+//		throw pscripterror;
 	}
 	return S_OK;
 }

@@ -60,6 +60,8 @@ class CTScriptControl : public IScriptControl,
 {
 public:
 	TUHWND m_hwnd;
+	EXCEPINFO *m_pEI;
+	HRESULT m_hr;
 	//IUnknown
 	STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject);
 	STDMETHODIMP_(ULONG) AddRef();
