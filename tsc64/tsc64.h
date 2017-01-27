@@ -135,7 +135,7 @@ public:
 	~CTScriptControl();
 
 	HRESULT Exec(BSTR Expression,VARIANT * pvarResult, DWORD dwFlags);
-	HRESULT ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispatchEx *pdex, IUnknown *pOnError, IDispatch **ppdisp, IActiveScript **ppas, VARIANT *pvarResult, DWORD dwFlags);
+	HRESULT ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispatchEx *pdex, IDispatch **ppdisp, IActiveScript **ppas, VARIANT *pvarResult, DWORD dwFlags);
 	VOID Clear();
 	VARIANT_BOOL AllowUI;
 private:
@@ -172,12 +172,11 @@ public:
 	STDMETHODIMP GetWindow(HWND *phwnd);
 	STDMETHODIMP EnableModeless(BOOL fEnable);
 
-	CteActiveScriptSite(IUnknown *punk, IUnknown *pOnError, CTScriptControl *pSC);
+	CteActiveScriptSite(IUnknown *punk, CTScriptControl *pSC);
 	~CteActiveScriptSite();
 public:
 	LONG		m_cRef;
 	IDispatchEx	*m_pDispatchEx;
-	IDispatch *m_pOnError;
 	CTScriptControl *m_pSC;
 };
 

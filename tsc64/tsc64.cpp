@@ -379,12 +379,12 @@ HRESULT CTScriptControl::Exec(BSTR Expression,VARIANT * pvarResult, DWORD dwFlag
 			pasp->Release();
 		}
 	} else {
-		ParseScript(Expression, m_bsLang, m_pObjectEx, NULL, &m_pCode, &m_pActiveScript, pvarResult, dwFlags);
+		ParseScript(Expression, m_bsLang, m_pObjectEx, &m_pCode, &m_pActiveScript, pvarResult, dwFlags);
 	}
 	return m_hr;
 }
 
-HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispatchEx *pdex, IUnknown *pOnError, IDispatch **ppdisp, IActiveScript **ppas, VARIANT *pvarResult, DWORD dwFlags)
+HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispatchEx *pdex, IDispatch **ppdisp, IActiveScript **ppas, VARIANT *pvarResult, DWORD dwFlags)
 {
 	HRESULT hr = E_FAIL;
 	CLSID clsid;
@@ -405,7 +405,7 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 			while (++v.lVal <= 256 && paspr->SetProperty(SCRIPTPROP_INVOKEVERSIONING, NULL, &v) == S_OK) {
 			}
 		}
-		CteActiveScriptSite *pass = new CteActiveScriptSite(pdex, pOnError, this);
+		CteActiveScriptSite *pass = new CteActiveScriptSite(pdex, this);
 		pas->SetScriptSite(pass);
 		pass->Release();
 		IActiveScriptParse *pasp;
@@ -767,7 +767,7 @@ STDMETHODIMP CTScriptControl::raw_AddObject(BSTR Name, IDispatch * Object, VARIA
 	if (m_pObjectEx == NULL) {
 		//Get JScript Object
 		LPOLESTR lp = L"function o(){return {}}";
-		if (ParseScript(lp, L"JScript", NULL, NULL, &m_pJS, NULL, NULL, SCRIPTTEXT_ISPERSISTENT | SCRIPTTEXT_ISVISIBLE) == S_OK) {
+		if (ParseScript(lp, L"JScript", NULL, &m_pJS, NULL, NULL, SCRIPTTEXT_ISPERSISTENT | SCRIPTTEXT_ISVISIBLE) == S_OK) {
 			lp = L"o";
 			VariantInit(&v);
 			if (m_pJS->GetIDsOfNames(IID_NULL, &lp, 1, LOCALE_USER_DEFAULT, &dispid) == S_OK) {
@@ -1359,17 +1359,13 @@ STDMETHODIMP CteDispatch::Clone(IEnumVARIANT **ppEnum)
 }
 
 //CteActiveScriptSite
-CteActiveScriptSite::CteActiveScriptSite(IUnknown *punk, IUnknown *pOnError, CTScriptControl *pSC)
+CteActiveScriptSite::CteActiveScriptSite(IUnknown *punk, CTScriptControl *pSC)
 {
 	m_cRef = 1;
 	m_pDispatchEx = NULL;
-	m_pOnError = NULL;
 	m_pSC = NULL;
 	if (punk) {
 		punk->QueryInterface(IID_PPV_ARGS(&m_pDispatchEx));
-	}
-	if (pOnError) {
-		pOnError->QueryInterface(IID_PPV_ARGS(&m_pOnError));
 	}
 	if (pSC) {
 		pSC->AddRef();
@@ -1380,7 +1376,6 @@ CteActiveScriptSite::CteActiveScriptSite(IUnknown *punk, IUnknown *pOnError, CTS
 CteActiveScriptSite::~CteActiveScriptSite()
 {
 	SafeRelease(&m_pSC);
-	SafeRelease(&m_pOnError);
 	SafeRelease(&m_pDispatchEx);
 }
 
@@ -1457,25 +1452,34 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	if (this->m_pSC->AllowUI)
 	{
 		EXCEPINFO ei;
-//		BSTR bs = NULL;
 		DWORD dwSourceContext = 0;
 		DWORD ulLineNumber = 0;
 		LONG lCharacterPosition = 0;
-		pscripterror->GetExceptionInfo(&ei);
-//		pscripterror->GetSourceLineText(&bs);
-		pscripterror->GetSourcePosition(&dwSourceContext, &ulLineNumber, &lCharacterPosition);
-	
-		TCHAR szMessage[65536];
-		wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode);
-		int nLen = lstrlen(szMessage);
-		lstrcpyn(&szMessage[nLen], ei.bstrSource, 65536 - nLen);
-		MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
+		if SUCCEEDED(pscripterror->GetExceptionInfo(&ei)) {
+			pscripterror->GetSourcePosition(&dwSourceContext, &ulLineNumber, &lCharacterPosition);
+		
+			TCHAR szMessage[65536];
+			wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode);
+			int nLen = lstrlen(szMessage);
+			lstrcpyn(&szMessage[nLen], ei.bstrSource, 65536 - nLen);
+			MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
+			if (ei.bstrDescription) {
+				::SysFreeString(ei.bstrDescription);
+			}
+			if (ei.bstrHelpFile) {
+				::SysFreeString(ei.bstrHelpFile);
+			}
+			if (ei.bstrSource) {
+				::SysFreeString(ei.bstrSource);
+			}
+		}
 	}
 	else
 	{
 		if (m_pSC->m_pEI) {
-			pscripterror->GetExceptionInfo(m_pSC->m_pEI);
-			m_pSC->m_hr = m_pSC->m_pEI->scode | 0x80000000;
+			if SUCCEEDED(pscripterror->GetExceptionInfo(m_pSC->m_pEI)) {
+				m_pSC->m_hr = DISP_E_EXCEPTION;
+			}
 		}
 //		throw pscripterror;
 	}
