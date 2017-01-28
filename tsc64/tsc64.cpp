@@ -46,6 +46,20 @@ TEmethod methodTSC[] = {
 	{ 0, NULL }
 };
 
+TEmethod methodTSE[] = {
+	//property
+	{ 0x000000c9, L"Number" },
+	{ 0x000000ca, L"Source" },
+	{ 0x000000cc, L"Description" },
+	{ 0x000000cd, L"HelpContext" },
+	{ 0xfffffdfb, L"Text" },
+	{ 0x000000ce, L"Line" },
+	{ 0xfffffdef, L"Column" },
+	//method
+	{ 0x000000d0, L"Clear" },
+	{ 0, NULL }
+};
+
 // Functions
 VOID SafeRelease(PVOID ppObj)
 {
@@ -58,6 +72,14 @@ VOID SafeRelease(PVOID ppObj)
 	} catch (...) {}
 }
 
+VOID teSysFreeString(BSTR *pbs)
+{
+	if (*pbs) {
+		::SysFreeString(*pbs);
+		*pbs = NULL;
+	}
+}
+
 void LockModule(BOOL bLock)
 {
 	if (bLock) {
@@ -65,6 +87,14 @@ void LockModule(BOOL bLock)
 	} else {
 		InterlockedDecrement(&g_lLocks);
 	}
+}
+
+VOID teClearExceptInfo(EXCEPINFO *pEI)
+{
+	teSysFreeString(&pEI->bstrSource);
+	teSysFreeString(&pEI->bstrDescription);
+	teSysFreeString(&pEI->bstrHelpFile);
+	::ZeroMemory(pEI, sizeof(EXCEPINFO));
 }
 
 HRESULT ShowRegError(LSTATUS lr)
@@ -221,6 +251,14 @@ LONGLONG GetLLFromVariant(VARIANT *pv)
 	return 0;
 }
 
+VOID teSetLong(VARIANT *pv, LONG i)
+{
+	if (pv) {
+		pv->lVal = i;
+		pv->vt = VT_I4;
+	}
+}
+
 VOID teSetLL(VARIANT *pv, LONGLONG ll)
 {
 	if (pv) {
@@ -356,6 +394,7 @@ CTScriptControl::CTScriptControl()
 		pTypeLib->GetTypeInfoOfGuid(IID_IScriptControl, &m_pTypeInfo);
 		pTypeLib->Release();
 	}
+	m_pError = new CTScriptError();
 	LockModule(TRUE);
 }
 
@@ -364,6 +403,7 @@ CTScriptControl::~CTScriptControl()
 	raw_Reset();
 	SafeRelease(&m_pClientSite);
 	SafeRelease(&m_pTypeInfo);
+	SafeRelease(&m_pError);
 	LockModule(FALSE);
 }
 
@@ -572,6 +612,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			return E_NOTIMPL;
 		//Error
 		case 1507:
+			teSetObject(pVarResult, m_pError);
 			return S_OK;
 		//CodeObject
 		case 1000:
@@ -652,14 +693,9 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			return hr;
 		//this
 		case DISPID_VALUE:
-			if (pVarResult) {
-				teSetObject(pVarResult, this);
-			}
+			teSetObject(pVarResult, this);
 			return S_OK;
 	}//end_switch
-/*	TCHAR szError[16];
-	wsprintf(szError, TEXT("%x"), dispIdMember);
-	MessageBox(NULL, (LPWSTR)szError, 0, 0);*/
 	return DISP_E_MEMBERNOTFOUND;
 }
 
@@ -671,9 +707,7 @@ STDMETHODIMP CTScriptControl::get_Language(BSTR * pbstrLanguage)
 
 STDMETHODIMP CTScriptControl::put_Language(BSTR pbstrLanguage)
 {
-	if (m_bsLang) {
-		::SysFreeString(m_bsLang);
-	}
+	teSysFreeString(&m_bsLang);
 	m_bsLang = ::SysAllocString(pbstrLanguage);
 	return S_OK;
 }
@@ -741,7 +775,8 @@ STDMETHODIMP CTScriptControl::get_Modules(struct IScriptModuleCollection ** ppmo
 
 STDMETHODIMP CTScriptControl::get_Error(struct IScriptError ** ppse)
 {
-	return E_NOTIMPL;
+	*ppse = m_pError;
+	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::get_CodeObject(IDispatch ** ppdispObject)
@@ -809,9 +844,7 @@ VOID CTScriptControl::Clear()
 
 STDMETHODIMP CTScriptControl::raw_Reset()
 {
-	if (m_bsLang) {
-		::SysFreeString(m_bsLang);
-	}
+	teSysFreeString(&m_bsLang);
 	SafeRelease(&m_pCode);
 	SafeRelease(&m_pObjectEx);
 	SafeRelease(&m_pObject);
@@ -1261,9 +1294,7 @@ STDMETHODIMP CteDispatch::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WO
 	}
 	if (m_nMode) {
 		if (dispIdMember == DISPID_NEWENUM) {
-			if (pVarResult) {
-				teSetObject(pVarResult, this);
-			}
+			teSetObject(pVarResult, this);
 			return S_OK;
 		}
 		if (dispIdMember == DISPID_VALUE) {
@@ -1284,9 +1315,7 @@ STDMETHODIMP CteDispatch::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WO
 				}
 				return S_OK;
 			}
-			if (pVarResult) {
-				teSetObject(pVarResult, this);
-			}
+			teSetObject(pVarResult, this);
 			return S_OK;
 		}
 		return m_pDispatch->Invoke(dispIdMember, riid, lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
@@ -1294,9 +1323,7 @@ STDMETHODIMP CteDispatch::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WO
 	if (wFlags & DISPATCH_METHOD) {
 		return m_pDispatch->Invoke(m_dispIdMember, riid, lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
 	}
-	if (pVarResult) {
-		teSetObject(pVarResult, this);
-	}
+	teSetObject(pVarResult, this);
 	return S_OK;
 }
 
@@ -1449,39 +1476,30 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	if (!pscripterror) {
 		return E_POINTER;
 	}
-	if (this->m_pSC->AllowUI)
-	{
-		EXCEPINFO ei;
+	EXCEPINFO *pei = &m_pSC->m_pError->m_EI;
+	teClearExceptInfo(pei);
+	if SUCCEEDED(pscripterror->GetExceptionInfo(pei)) {
 		DWORD dwSourceContext = 0;
-		DWORD ulLineNumber = 0;
-		LONG lCharacterPosition = 0;
-		if SUCCEEDED(pscripterror->GetExceptionInfo(&ei)) {
-			pscripterror->GetSourcePosition(&dwSourceContext, &ulLineNumber, &lCharacterPosition);
-		
+		pscripterror->GetSourcePosition(&dwSourceContext, &m_pSC->m_pError->m_ulLine, &m_pSC->m_pError->m_lColumn);
+		teSysFreeString(&m_pSC->m_pError->m_bsText);
+		pscripterror->GetSourceLineText(&m_pSC->m_pError->m_bsText);
+/*		if (this->m_pSC->AllowUI)
+		{
 			TCHAR szMessage[65536];
-			wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), ulLineNumber, lCharacterPosition, ei.bstrDescription, ei.scode);
+			wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), m_pSC->m_pError->m_ulLine, m_pSC->m_pError->m_lColumn, pei->bstrDescription, pei->scode);
 			int nLen = lstrlen(szMessage);
-			lstrcpyn(&szMessage[nLen], ei.bstrSource, 65536 - nLen);
+			lstrcpyn(&szMessage[nLen], pei->bstrSource, 65536 - nLen);
 			MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
-			if (ei.bstrDescription) {
-				::SysFreeString(ei.bstrDescription);
-			}
-			if (ei.bstrHelpFile) {
-				::SysFreeString(ei.bstrHelpFile);
-			}
-			if (ei.bstrSource) {
-				::SysFreeString(ei.bstrSource);
-			}
 		}
-	}
-	else
-	{
+		else
+		{
+//			throw pscripterror;
+		}*/
 		if (m_pSC->m_pEI) {
 			if SUCCEEDED(pscripterror->GetExceptionInfo(m_pSC->m_pEI)) {
 				m_pSC->m_hr = DISP_E_EXCEPTION;
 			}
 		}
-//		throw pscripterror;
 	}
 	return S_OK;
 }
@@ -1515,4 +1533,183 @@ STDMETHODIMP CteActiveScriptSite::GetWindow(HWND *phwnd)
 STDMETHODIMP CteActiveScriptSite::EnableModeless(BOOL fEnable)
 {
 	return E_NOTIMPL;
+}
+
+//CTScriptError
+
+CTScriptError::CTScriptError()
+{
+	m_cRef = 1;
+	m_EI.bstrSource = NULL;
+	m_EI.bstrDescription = NULL;
+	m_EI.bstrHelpFile = NULL;
+	m_bsText = NULL;
+	raw_Clear();
+}
+
+CTScriptError::~CTScriptError()
+{
+	raw_Clear();
+}
+
+STDMETHODIMP CTScriptError::QueryInterface(REFIID riid, void **ppvObject)
+{
+	static const QITAB qit[] =
+	{
+		QITABENT(CTScriptError, IDispatch),
+		QITABENT(CTScriptError, IScriptControl),
+		{ 0 },
+	};
+	return QISearch(this, qit, riid, ppvObject);
+}
+
+STDMETHODIMP_(ULONG) CTScriptError::AddRef()
+{
+	return InterlockedIncrement(&m_cRef);
+}
+
+STDMETHODIMP_(ULONG) CTScriptError::Release()
+{
+	if (InterlockedDecrement(&m_cRef) == 0) {
+		delete this;
+		return 0;
+	}
+
+	return m_cRef;
+}
+
+STDMETHODIMP CTScriptError::GetTypeInfoCount(UINT *pctinfo)
+{
+	*pctinfo = 0;
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptError::GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId)
+{
+	return teGetDispId(methodTSE, _countof(methodTSE), NULL, *rgszNames, rgDispId);
+}
+
+STDMETHODIMP CTScriptError::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
+{
+	switch (dispIdMember) {
+		//Number
+		case 0x000000c9:
+			if (pVarResult) {
+				pVarResult->vt = VT_I4;
+				return get_Number(&pVarResult->lVal);
+			}
+			return S_OK;
+		//Source
+		case 0x000000ca:
+			if (pVarResult) {
+				pVarResult->vt = VT_BSTR;
+				return get_Source(&pVarResult->bstrVal);
+			}
+			return S_OK;
+		//Description
+		case 0x000000cc:
+			if (pVarResult) {
+				pVarResult->vt = VT_BSTR;
+				return get_Description(&pVarResult->bstrVal);
+			}
+			return S_OK;
+		//HelpContext
+		case 0x000000cd:
+			if (pVarResult) {
+				pVarResult->vt = VT_I4;
+				return get_HelpContext(&pVarResult->lVal);
+			}
+			return S_OK;
+		//Text
+		case 0xfffffdfb:
+			if (pVarResult) {
+				pVarResult->vt = VT_BSTR;
+				return get_Text(&pVarResult->bstrVal);
+			}
+			return S_OK;
+		//Line
+		case 0x000000ce:
+			if (pVarResult) {
+				pVarResult->vt = VT_I4;
+				return get_Line(&pVarResult->lVal);
+			}
+			return S_OK;
+		//Column
+		case 0xfffffdef:
+			if (pVarResult) {
+				pVarResult->vt = VT_I4;
+				return get_Column(&pVarResult->lVal);
+			}
+			return S_OK;
+		//Clear
+		case 0x000000d0:
+			return raw_Clear();
+		//this
+		case DISPID_VALUE:
+			teSetObject(pVarResult, this);
+			return S_OK;
+	}//end_switch
+	return DISP_E_MEMBERNOTFOUND;
+}
+
+STDMETHODIMP CTScriptError::get_Number(long *plNumber)
+{
+	*plNumber = LOWORD(m_EI.scode);
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::get_Source(BSTR *pbstrSource)
+{
+	*pbstrSource = ::SysAllocString(m_EI.bstrSource);
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::get_Description (BSTR *pbstrDescription)
+{
+	*pbstrDescription = ::SysAllocString(m_EI.bstrDescription);
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::get_HelpFile(BSTR *pbstrHelpFile)
+{
+	*pbstrHelpFile = ::SysAllocString(m_EI.bstrHelpFile);
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::get_HelpContext(long *plHelpContext)
+{
+	*plHelpContext = m_EI.dwHelpContext;
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::get_Text(BSTR *pbstrText)
+{
+	*pbstrText = ::SysAllocString(m_bsText);
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::get_Line(long *plLine)
+{
+	*plLine = m_ulLine;
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::get_Column(long *plColumn)
+{
+	*plColumn = m_lColumn;
+	return S_OK;
+}
+
+STDMETHODIMP CTScriptError::raw_Clear()
+{
+	m_ulLine = 0;
+	m_lColumn = 0;
+	teSysFreeString(&m_bsText);
+	teClearExceptInfo(&m_EI);
+	return S_OK;
 }

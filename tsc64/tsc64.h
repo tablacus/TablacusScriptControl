@@ -54,12 +54,46 @@ private:
 	int			m_nMode;//0: Clone 1:collection 2:ScriptDispatch
 };
 
+class CTScriptError : public IScriptError
+{
+public:
+	EXCEPINFO m_EI;
+	DWORD m_ulLine;
+	LONG m_lColumn;
+	BSTR m_bsText;
+	//IUnknown
+	STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject);
+	STDMETHODIMP_(ULONG) AddRef();
+	STDMETHODIMP_(ULONG) Release();
+	//IDispatch
+	STDMETHODIMP GetTypeInfoCount(UINT *pctinfo);
+	STDMETHODIMP GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo);
+	STDMETHODIMP GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames, LCID lcid, DISPID *rgDispId);
+	STDMETHODIMP Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr);
+	//IScriptError
+	STDMETHODIMP get_Number(long *plNumber);
+	STDMETHODIMP get_Source(BSTR *pbstrSource);
+	STDMETHODIMP get_Description (BSTR *pbstrDescription);
+	STDMETHODIMP get_HelpFile(BSTR *pbstrHelpFile);
+	STDMETHODIMP get_HelpContext(long *plHelpContext);
+	STDMETHODIMP get_Text(BSTR *pbstrText);
+	STDMETHODIMP get_Line(long *plLine);
+	STDMETHODIMP get_Column(long *plColumn);
+	STDMETHODIMP raw_Clear();
+
+	CTScriptError();
+	~CTScriptError();
+private:
+	LONG   m_cRef;
+};
+
 class CTScriptControl : public IScriptControl, 
 	public IOleObject, public IPersistStreamInit,
 	public IOleControl
 {
 public:
 	TUHWND m_hwnd;
+	CTScriptError *m_pError;
 	EXCEPINFO *m_pEI;
 	HRESULT m_hr;
 	//IUnknown
