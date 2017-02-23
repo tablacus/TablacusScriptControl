@@ -871,6 +871,7 @@ STDMETHODIMP CTScriptControl::raw_ExecuteStatement(BSTR Statement)
 
 STDMETHODIMP CTScriptControl::raw_Run(BSTR ProcedureName, SAFEARRAY ** Parameters, VARIANT *pvarResult)
 {
+	m_hr = S_OK;
 	VARIANT *pv;
 	VARIANT *pv2 = NULL;
 	long nArg = 0;
@@ -886,13 +887,14 @@ STDMETHODIMP CTScriptControl::raw_Run(BSTR ProcedureName, SAFEARRAY ** Parameter
 		}
 	}
 	DISPID dispid;
-	if (m_pCode->GetIDsOfNames(IID_NULL, &ProcedureName, 1, LOCALE_USER_DEFAULT, &dispid) == S_OK) {
+	HRESULT hr = m_pCode->GetIDsOfNames(IID_NULL, &ProcedureName, 1, LOCALE_USER_DEFAULT, &dispid);
+	if (hr == S_OK) {
 		Invoke5(m_pCode, dispid, DISPATCH_METHOD, pvarResult, -nArg, pv2);
 	}
 	if (pv2) {
 		delete [] pv2;
 	}
-	return S_OK;
+	return hr ? hr : m_hr;
 }
 
 //IOleObject
