@@ -87,7 +87,7 @@ private:
 	LONG   m_cRef;
 };
 
-class CTScriptControl : public IScriptControl, 
+class CTScriptControl : public IScriptControl,
 	public IOleObject, public IPersistStreamInit,
 	public IOleControl
 {
@@ -209,9 +209,9 @@ public:
 	CteActiveScriptSite(IUnknown *punk, CTScriptControl *pSC);
 	~CteActiveScriptSite();
 public:
-	LONG		m_cRef;
 	IDispatchEx	*m_pDispatchEx;
 	CTScriptControl *m_pSC;
+	LONG		m_cRef;
 };
 
 class CTScriptControlFactory : public IClassFactory
@@ -220,9 +220,24 @@ public:
 	STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject);
 	STDMETHODIMP_(ULONG) AddRef();
 	STDMETHODIMP_(ULONG) Release();
-	
+
 	STDMETHODIMP CreateInstance(IUnknown *pUnkOuter, REFIID riid, void **ppvObject);
 	STDMETHODIMP LockServer(BOOL fLock);
 };
 
-const CLSID CLSID_JScriptChakra       = {0x16d51579, 0xa30b, 0x4c8b, { 0xa2, 0x76, 0x0f, 0xf4, 0xdc, 0x41, 0xe7, 0x55}}; 
+class CTScriptObject : public IUnknown
+{
+public:
+	STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject);
+	STDMETHODIMP_(ULONG) AddRef();
+	STDMETHODIMP_(ULONG) Release();
+
+	CTScriptObject(IDispatch *pObject, VARIANT_BOOL bAddMembers);
+	~CTScriptObject();
+
+	IDispatch	*m_pObject;
+	VARIANT_BOOL m_bAddMembers;
+	LONG		m_cRef;
+};
+
+const CLSID CLSID_JScriptChakra       = {0x16d51579, 0xa30b, 0x4c8b, { 0xa2, 0x76, 0x0f, 0xf4, 0xdc, 0x41, 0xe7, 0x55}};

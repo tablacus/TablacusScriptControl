@@ -1,7 +1,7 @@
 // Tablacus Script Control 64 (C)2014 Gaku
 // MIT Lisence
-// Visual C++ 2008 Express Edition SP1
-// Windows SDK v7.0
+// Visual C++ 2010 Express Edition SP1
+// Windows SDK v7.1
 // http://www.eonet.ne.jp/~gakana/tablacus/
 
 #include "tsc64.h"
@@ -21,6 +21,8 @@ LONG      g_lLocks = 0;
 HINSTANCE g_hinstDll = NULL;
 IScriptControl *pSC;
 CLSID CLSID_TScriptServer;
+GUID	g_ClsIdScriptObject;
+
 int		*g_map;
 
 TEmethod methodTSC[] = {
@@ -100,11 +102,11 @@ VOID teClearExceptInfo(EXCEPINFO *pEI)
 HRESULT ShowRegError(LSTATUS lr)
 {
 	LPTSTR lpBuffer = NULL;
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,  
-		NULL, lr, LANG_USER_DEFAULT,   
-		(LPTSTR)&lpBuffer, 0, NULL );  
-	MessageBox(NULL, lpBuffer, g_szProgid, MB_ICONHAND | MB_OK);  
-	LocalFree(lpBuffer); 
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+		NULL, lr, LANG_USER_DEFAULT,
+		(LPTSTR)&lpBuffer, 0, NULL );
+	MessageBox(NULL, lpBuffer, g_szProgid, MB_ICONHAND | MB_OK);
+	LocalFree(lpBuffer);
 	return HRESULT_FROM_WIN32(lr);
 }
 
@@ -457,7 +459,24 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 				while (hr == NOERROR) {
 					BSTR bs;
 					if (pdex->GetMemberName(dispid, &bs) == S_OK) {
-						pas->AddNamedItem(bs, SCRIPTITEM_ISVISIBLE | SCRIPTITEM_ISSOURCE | SCRIPTITEM_GLOBALMEMBERS);
+						DWORD dwFlags = SCRIPTITEM_ISPERSISTENT | SCRIPTITEM_ISVISIBLE;
+						DISPPARAMS noargs = { NULL, NULL, 0, 0 };
+						VARIANT v;
+						VariantInit(&v);
+						if (pdex->InvokeEx(dispid, LOCALE_USER_DEFAULT, DISPATCH_PROPERTYGET, &noargs, &v, NULL, NULL) == S_OK) {
+							IUnknown *punk;
+							if (FindUnknown(&v, &punk)) {
+								CTScriptObject *pSO;
+								if SUCCEEDED(punk->QueryInterface(g_ClsIdScriptObject, (LPVOID *)&pSO)) {
+									if (pSO->m_bAddMembers) {
+										dwFlags = SCRIPTITEM_ISVISIBLE | SCRIPTITEM_ISSOURCE | SCRIPTITEM_GLOBALMEMBERS;
+									}
+									pSO->Release();
+								}
+							}
+						}
+						VariantClear(&v);
+						pas->AddNamedItem(bs, dwFlags);
 						::SysFreeString(bs);
 					}
 					hr = pdex->GetNextDispID(fdexEnumAll, dispid, &dispid);
@@ -627,7 +646,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			return E_NOTIMPL;
 		//_AboutBox
 		case -552:
-			return raw__AboutBox();			
+			return raw__AboutBox();
 		//AddObject
 		case 2500:
 			if (nArg >= 1) {
@@ -792,7 +811,7 @@ STDMETHODIMP CTScriptControl::get_Procedures(struct IScriptProcedureCollection *
 STDMETHODIMP CTScriptControl::raw__AboutBox()
 {
 	MessageBox(NULL, _T(PRODUCTNAME) L" Version " _T(STRING(VER_Y)) L"." _T(STRING(VER_M)) L"." _T(STRING(VER_D)) L"." _T(STRING(VER_Z)), TITLE, MB_ICONINFORMATION | MB_OK);
-	return S_OK;		
+	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::raw_AddObject(BSTR Name, IDispatch * Object, VARIANT_BOOL AddMembers)
@@ -818,8 +837,8 @@ STDMETHODIMP CTScriptControl::raw_AddObject(BSTR Name, IDispatch * Object, VARIA
 		VariantClear(&v);
 	}
 	if (m_pObjectEx->GetDispID(Name, fdexNameEnsure, &dispid) == S_OK) {
-		v.pdispVal = Object;
-		v.vt = VT_DISPATCH;
+		v.punkVal = new CTScriptObject(Object, AddMembers);
+		v.vt = VT_UNKNOWN;
 		DISPID dispidName = DISPID_PROPERTYPUT;
 		DISPPARAMS args;
 		args.cArgs = 1;
@@ -1117,6 +1136,43 @@ STDMETHODIMP CTScriptControlFactory::LockServer(BOOL fLock)
 	return S_OK;
 }
 
+//CTScriptObject
+STDMETHODIMP CTScriptObject::QueryInterface(REFIID riid, void **ppvObject)
+{
+	if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, g_ClsIdScriptObject)) {
+		*ppvObject = this;
+		AddRef();
+		return S_OK;
+	}
+	return E_NOINTERFACE;
+}
+
+
+STDMETHODIMP_(ULONG) CTScriptObject::AddRef()
+{
+	return ::InterlockedIncrement(&m_cRef);
+}
+
+STDMETHODIMP_(ULONG) CTScriptObject::Release()
+{
+	if (::InterlockedDecrement(&m_cRef) == 0) {
+		delete this;
+		return 0;
+	}
+	return m_cRef;
+}
+
+CTScriptObject::CTScriptObject(IDispatch *pObject, VARIANT_BOOL bAddMembers)
+{
+	m_cRef = 1;
+	pObject->QueryInterface(IID_PPV_ARGS(&m_pObject));
+	m_bAddMembers = bAddMembers;
+}
+
+CTScriptObject::~CTScriptObject()
+{
+	SafeRelease(&m_pObject);
+}
 
 // DLL Export
 
@@ -1132,7 +1188,7 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 	HRESULT hr;
 
 	*ppv = NULL;
-	
+
 	if (IsEqualCLSID(rclsid, CLSID_TScriptServer)) {
 		hr = serverFactory.QueryInterface(riid, ppv);
 	} else {
@@ -1200,6 +1256,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDll, DWORD dwReason, LPVOID lpReserved)
 			g_hinstDll = hinstDll;
 			CLSIDFromString(g_szClsid, &CLSID_TScriptServer);
 			g_map = SortTEMethod(methodTSC, _countof(methodTSC));
+			CoCreateGuid(&g_ClsIdScriptObject);
 			break;
 		case DLL_PROCESS_DETACH:
 			delete [] g_map;
@@ -1358,7 +1415,7 @@ STDMETHODIMP CteDispatch::Next(ULONG celt, VARIANT *rgVar, ULONG *pCeltFetched)
 			pv[0].vt = VT_I4;
 			pv[0].lVal = m_nIndex++;
 			return Invoke5(m_pDispatch, DISPID_TE_ITEM, DISPATCH_METHOD, rgVar, 1, pv);
-		}	
+		}
 	}
 	return S_FALSE;
 }
@@ -1455,6 +1512,11 @@ STDMETHODIMP CteActiveScriptSite::GetItemInfo(LPCOLESTR pstrName,
 				VariantInit(&v);
 				if (m_pDispatchEx->InvokeEx(dispid, LOCALE_USER_DEFAULT, DISPATCH_PROPERTYGET, &noargs, &v, NULL, NULL) == S_OK) {
 					if (FindUnknown(&v, ppiunkItem)) {
+						CTScriptObject *pSO;
+						if SUCCEEDED((*ppiunkItem)->QueryInterface(g_ClsIdScriptObject, (LPVOID *)&pSO)) {
+							SafeRelease(ppiunkItem);
+							*ppiunkItem = pSO->m_pObject;
+						}
 						hr = S_OK;
 					} else {
 						VariantClear(&v);
@@ -1559,7 +1621,7 @@ STDMETHODIMP CTScriptError::QueryInterface(REFIID riid, void **ppvObject)
 	static const QITAB qit[] =
 	{
 		QITABENT(CTScriptError, IDispatch),
-		QITABENT(CTScriptError, IScriptControl),
+		QITABENT(CTScriptError, IScriptError),
 		{ 0 },
 	};
 	return QISearch(this, qit, riid, ppvObject);
