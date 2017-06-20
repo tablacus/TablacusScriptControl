@@ -389,6 +389,7 @@ CTScriptControl::CTScriptControl()
 
 	m_cRef = 1;
 	Clear();
+	m_bsLang = NULL;
 	m_pClientSite = NULL;
 	m_pTypeInfo = NULL;
 	AllowUI = FALSE;
@@ -402,6 +403,7 @@ CTScriptControl::CTScriptControl()
 
 CTScriptControl::~CTScriptControl()
 {
+	teSysFreeString(&m_bsLang);
 	raw_Reset();
 	SafeRelease(&m_pClientSite);
 	SafeRelease(&m_pTypeInfo);
@@ -852,7 +854,6 @@ STDMETHODIMP CTScriptControl::raw_AddObject(BSTR Name, IDispatch * Object, VARIA
 
 VOID CTScriptControl::Clear()
 {
-	m_bsLang = NULL;
 	m_pActiveScript = NULL;
 	m_pJS = NULL;
 	m_pObject = NULL;
@@ -863,7 +864,6 @@ VOID CTScriptControl::Clear()
 
 STDMETHODIMP CTScriptControl::raw_Reset()
 {
-	teSysFreeString(&m_bsLang);
 	SafeRelease(&m_pCode);
 	SafeRelease(&m_pObjectEx);
 	SafeRelease(&m_pObject);
