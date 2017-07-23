@@ -574,7 +574,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 	VARIANT v; VariantInit(&v);
 	HRESULT hr = S_OK;
 
-	// used by CteActiveScriptSite::OnScriptError::OnScriptError to pass info to our caller
+	// used by CteActiveScriptSite::OnScriptError to pass info to our caller
 	m_pEI = pExcepInfo;
 
 	switch (dispIdMember) {
@@ -731,7 +731,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			break;
 	}//end_switch
 	
-	// no more caller for CteActiveScriptSite::OnScriptError::OnScriptError
+	// no more caller for CteActiveScriptSite::OnScriptError
 	m_pEI = NULL;
 	return hr;
 }
