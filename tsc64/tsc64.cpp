@@ -571,8 +571,10 @@ STDMETHODIMP CTScriptControl::GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UI
 STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
 {
 	int nArg = pDispParams ? pDispParams->cArgs - 1 : -1;
-	VARIANT v;
+	VARIANT v; VariantInit(&v);
 	HRESULT hr = S_OK;
+
+	// used by CTScriptError::OnScriptError to pass info to our caller
 	m_pEI = pExcepInfo;
 
 	switch (dispIdMember) {
@@ -587,7 +589,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				hr = get_Language(&pVarResult->bstrVal);
 				pVarResult->vt = VT_BSTR;
 			}
-			return hr;
+			break;
 		//State
 		case 1501:
 			if (nArg >= 0) {
@@ -597,14 +599,14 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				hr = get_State((ScriptControlStates *)&pVarResult->lVal);
 				pVarResult->vt = VT_I4;
 			}
-			return hr;
+			break;
 		//SitehWnd
 		case 1502:
 			if (nArg >= 0) {
 				m_hwnd.ll = GetLLFromVariant(&pDispParams->rgvarg[nArg]);
 			}
 			teSetLL(pVarResult, m_hwnd.ll);
-			return hr;
+			break;
 		//Timeout
 		case 1503:
 			if (nArg >= 0) {
@@ -614,7 +616,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				hr = get_Timeout(&pVarResult->lVal);
 				pVarResult->vt = VT_I4;
 			}
-			return hr;
+			break;
 		//AllowUI
 		case 1504:
 			if (nArg >= 0) {
@@ -624,17 +626,20 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				hr = get_AllowUI(&pVarResult->boolVal);
 				pVarResult->vt = VT_BOOL;
 			}
-			return hr;
+			break;
 		//UseSafeSubset
 		case 1505:
-			return S_OK;
+			hr = S_OK;
+			break;
 		//Modules
 		case 1506:
-			return E_NOTIMPL;
+			hr = E_NOTIMPL;
+			break;
 		//Error
 		case 1507:
 			teSetObject(pVarResult, m_pError);
-			return S_OK;
+			hr = S_OK;
+			break;
 		//CodeObject
 		case 1000:
 			if (pVarResult && m_pCode) {
@@ -642,13 +647,16 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 					pVarResult->vt = VT_DISPATCH;
 				}
 			}
-			return S_OK;
+			hr = S_OK;
+			break;
 		//Procedures
 		case 1001:
-			return E_NOTIMPL;
+			hr = E_NOTIMPL;
+			break;
 		//_AboutBox
 		case -552:
-			return raw__AboutBox();
+			hr = raw__AboutBox();
+			break;
 		//AddObject
 		case 2500:
 			if (nArg >= 1) {
@@ -662,10 +670,11 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 					}
 				}
 			}
-			return hr;
+			break;
 		//Reset
 		case 2501:
-			return raw_Reset();
+			hr = raw_Reset();
+			break;
 		//AddCode
 		case 2000:
 			if (nArg >= 0) {
@@ -673,7 +682,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				hr = raw_AddCode(v.bstrVal);
 				VariantClear(&v);
 			}
-			return hr;
+			break;
 		//Eval
 		case 2001:
 			if (nArg >= 0) {
@@ -681,7 +690,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				hr = raw_Eval(v.bstrVal, pVarResult);
 				VariantClear(&v);
 			}
-			return hr;
+			break;
 		//ExecuteStatement
 		case 2002:
 			if (nArg >= 0) {
@@ -689,7 +698,7 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				hr = raw_ExecuteStatement(v.bstrVal);
 				VariantClear(&v);
 			}
-			return hr;
+			break;
 		//Run
 		case 2003:
 			if (nArg >= 0) {
@@ -711,13 +720,20 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				}
 				VariantClear(&v);
 			}
-			return hr;
+			break;
 		//this
 		case DISPID_VALUE:
 			teSetObject(pVarResult, this);
-			return S_OK;
+			hr = S_OK;
+			break;
+		default:
+			hr = DISP_E_MEMBERNOTFOUND;
+			break;
 	}//end_switch
-	return DISP_E_MEMBERNOTFOUND;
+	
+	// no more caller for CTScriptError::OnScriptError
+	m_pEI = NULL;
+	return hr;
 }
 
 STDMETHODIMP CTScriptControl::get_Language(BSTR * pbstrLanguage)
