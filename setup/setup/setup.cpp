@@ -1,6 +1,6 @@
 // Tablacus Script Control 64 Installer (C)2014 Gaku
 // MIT Lisence
-// Visual C++ 2008 Express Edition SP1
+// Visual C++ 2010 Express Edition SP1
 // Windows SDK v7.0
 // http://www.eonet.ne.jp/~gakana/tablacus/
 
@@ -30,7 +30,18 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
  	// TODO: Place code here.
 	MSG msg;
-
+	//Eliminates the vulnerable to a DLL pre-loading attack.
+	LPFNSetDefaultDllDirectories lpfnSetDefaultDllDirectories = NULL;
+	HMODULE hDll = GetModuleHandleA("kernel32.dll");
+	if (hDll) {
+		lpfnSetDefaultDllDirectories = (LPFNSetDefaultDllDirectories)GetProcAddress(hDll, "SetDefaultDllDirectories");
+	}
+	if (lpfnSetDefaultDllDirectories) {
+		lpfnSetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32);
+	} else {
+//		MessageBox(NULL, L"Require SetDefaultDllDirectories(KB2533623)", NULL, MB_ICONERROR | MB_OK);
+		return EXIT_FAILURE;
+	}
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
 	LoadString(hInstance, IDC_SETUP, szWindowClass, MAX_LOADSTRING);
