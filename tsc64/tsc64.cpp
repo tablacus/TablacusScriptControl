@@ -878,6 +878,27 @@ VOID CTScriptControl::Clear()
 	m_hwnd.hwnd = NULL;
 }
 
+HRESULT CTScriptControl::SetScriptError(int n)
+{
+	HRESULT hr = E_UNEXPECTED;
+	WCHAR pszBuff[4096];
+	if (m_pEI) {
+		lstrcpy(pszBuff, L"%SystemRoot%\\SysWOW64\\msscript.ocx");
+		ExpandEnvironmentStrings(pszBuff, pszBuff, 4096);
+		HMODULE hLib = LoadLibraryEx(pszBuff, NULL, LOAD_LIBRARY_AS_DATAFILE);
+		if (hLib) {
+			if (LoadString(hLib, n, pszBuff, 4096)) {
+				m_pEI->bstrDescription = ::SysAllocString(pszBuff);
+				m_pEI->bstrSource = ::SysAllocString(TITLE);
+				m_pEI->scode = E_FAIL;
+			}
+			FreeLibrary(hLib);
+		}
+		hr = DISP_E_EXCEPTION;
+	}
+	return hr;
+}
+
 STDMETHODIMP CTScriptControl::raw_Reset()
 {
 	SafeRelease(&m_pCode);
@@ -886,7 +907,7 @@ STDMETHODIMP CTScriptControl::raw_Reset()
 	SafeRelease(&m_pJS);
 	SafeRelease(&m_pActiveScript);
 	Clear();
-	return S_OK;
+	return m_bsLang ? S_OK : SetScriptError(1024);
 }
 
 STDMETHODIMP CTScriptControl::raw_AddCode(BSTR Code)

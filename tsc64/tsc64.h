@@ -171,6 +171,8 @@ public:
 	HRESULT Exec(BSTR Expression,VARIANT * pvarResult, DWORD dwFlags);
 	HRESULT ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispatchEx *pdex, IDispatch **ppdisp, IActiveScript **ppas, VARIANT *pvarResult, DWORD dwFlags);
 	VOID Clear();
+	HRESULT SetScriptError(int n);
+
 	VARIANT_BOOL AllowUI;
 private:
 	LONG   m_cRef;
