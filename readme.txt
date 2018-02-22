@@ -18,7 +18,7 @@ Run as administrator
 regsvr32 /u tsc64.dll
 
 Binary file is here.
-http://www.eonet.ne.jp/~gakana/tablacus/scriptcontrol_en.html
+https://tablacus.github.io/scriptcontrol_en.html
 
 Build
 Visual C++ 2010 Express Edition SP1
