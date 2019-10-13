@@ -1,8 +1,8 @@
 // Tablacus Script Control 64 Installer (C)2014 Gaku
 // MIT Lisence
-// Visual C++ 2010 Express Edition SP1
-// Windows SDK v7.0
-// http://www.eonet.ne.jp/~gakana/tablacus/
+// Visual C++ 2017 Express Edition
+// Windows SDK v7.1
+// https://tablacus.github.io/
 
 #include "stdafx.h"
 #include "setup.h"

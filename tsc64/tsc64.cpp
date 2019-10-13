@@ -1,15 +1,16 @@
 // Tablacus Script Control 64 (C)2014 Gaku
 // MIT Lisence
-// Visual C++ 2010 Express Edition SP1
+// Visual C++ 2017 Express Edition
 // Windows SDK v7.1
-// http://www.eonet.ne.jp/~gakana/tablacus/
+// https://tablacus.github.io/
 
 #include "tsc64.h"
 
-const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 #ifdef _WIN64
+const TCHAR g_szProgid[] = TEXT("MSScriptControl.ScriptControl");
 const TCHAR g_szClsid[] = TEXT("{0E59F1D5-1FBE-11D0-8FF2-00A0D10038BC}");
 #else
+const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 const TCHAR g_szClsid[] = TEXT("{760F48FE-E6E8-4d9d-AFD4-C7B393D4211F}");//test
 #endif
 
@@ -48,6 +49,8 @@ TEmethod methodTSC[] = {
 	{ 0, NULL }
 };
 
+#pragma warning(push)
+#pragma warning(disable:4838)
 TEmethod methodTSE[] = {
 	//property
 	{ 0x000000c9, L"Number" },
@@ -61,6 +64,7 @@ TEmethod methodTSE[] = {
 	{ 0x000000d0, L"Clear" },
 	{ 0, NULL }
 };
+#pragma warning(pop)
 
 // Functions
 VOID SafeRelease(PVOID ppObj)
@@ -403,6 +407,7 @@ CTScriptControl::CTScriptControl()
 
 CTScriptControl::~CTScriptControl()
 {
+	m_pEI = NULL;
 	teSysFreeString(&m_bsLang);
 	raw_Reset();
 	SafeRelease(&m_pClientSite);
@@ -518,6 +523,8 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 
 STDMETHODIMP CTScriptControl::QueryInterface(REFIID riid, void **ppvObject)
 {
+#pragma warning(push)
+#pragma warning(disable:4838)
 	static const QITAB qit[] =
 	{
 		QITABENT(CTScriptControl, IDispatch),
@@ -529,6 +536,7 @@ STDMETHODIMP CTScriptControl::QueryInterface(REFIID riid, void **ppvObject)
 		QITABENT(CTScriptControl, IPersistStreamInit),
 		{ 0 },
 	};
+#pragma warning(pop)
 	return QISearch(this, qit, riid, ppvObject);
 }
 
@@ -1127,11 +1135,14 @@ STDMETHODIMP CTScriptControl::InitNew(void)
 
 STDMETHODIMP CTScriptControlFactory::QueryInterface(REFIID riid, void **ppvObject)
 {
+#pragma warning(push)
+#pragma warning(disable:4838)
 	static const QITAB qit[] =
 	{
 		QITABENT(CTScriptControlFactory, IClassFactory),
 		{ 0 },
 	};
+#pragma warning(pop)
 	return QISearch(this, qit, riid, ppvObject);
 }
 
@@ -1327,12 +1338,15 @@ CteDispatch::~CteDispatch()
 
 STDMETHODIMP CteDispatch::QueryInterface(REFIID riid, void **ppvObject)
 {
+#pragma warning(push)
+#pragma warning(disable:4838)
 	static const QITAB qit[] =
 	{
 		QITABENT(CteDispatch, IDispatch),
 		QITABENT(CteDispatch, IEnumVARIANT),
 		{ 0 },
 	};
+#pragma warning(pop)
 	HRESULT hr = QISearch(this, qit, riid, ppvObject);
 	if SUCCEEDED(hr) {
 		return hr;
@@ -1504,12 +1518,15 @@ CteActiveScriptSite::~CteActiveScriptSite()
 
 STDMETHODIMP CteActiveScriptSite::QueryInterface(REFIID riid, void **ppvObject)
 {
+#pragma warning(push)
+#pragma warning(disable:4838)
 	static const QITAB qit[] =
 	{
 		QITABENT(CteActiveScriptSite, IActiveScriptSite),
 		QITABENT(CteActiveScriptSite, IActiveScriptSiteWindow),
 		{ 0 },
 	};
+#pragma warning(pop)
 	return QISearch(this, qit, riid, ppvObject);
 }
 
@@ -1655,12 +1672,15 @@ CTScriptError::~CTScriptError()
 
 STDMETHODIMP CTScriptError::QueryInterface(REFIID riid, void **ppvObject)
 {
+#pragma warning(push)
+#pragma warning(disable:4838)
 	static const QITAB qit[] =
 	{
 		QITABENT(CTScriptError, IDispatch),
 		QITABENT(CTScriptError, IScriptError),
 		{ 0 },
 	};
+#pragma warning(pop)
 	return QISearch(this, qit, riid, ppvObject);
 }
 
