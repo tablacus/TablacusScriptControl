@@ -438,7 +438,7 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 	HRESULT hr = E_FAIL;
 	CLSID clsid;
 	IActiveScript *pas = NULL;
-	if (PathMatchSpec(lpLang, L"J*Script")) {
+	if (PathMatchSpec(lpLang, L"J*Script9")) {
 		CoCreateInstance(CLSID_JScriptChakra, NULL, CLSCTX_INPROC_SERVER | CLSCTX_LOCAL_SERVER, IID_PPV_ARGS(&pas));
 	}
 	if (pas == NULL && teCLSIDFromProgID(lpLang, &clsid) == S_OK) {
@@ -1287,12 +1287,18 @@ STDAPI DllUnregisterServer(void)
 	TCHAR szKey[64];
 	wsprintf(szKey, TEXT("CLSID\\%s"), g_szClsid);
 	LSTATUS ls = SHDeleteKey(HKEY_CLASSES_ROOT, szKey);
+#ifdef _WIN64
+	if (ls == ERROR_SUCCESS) {
+		return S_OK;
+	}
+#else
 	if (ls == ERROR_SUCCESS) {
 		ls = SHDeleteKey(HKEY_CLASSES_ROOT, g_szProgid);
 		if (ls == ERROR_SUCCESS) {
 			return S_OK;
 		}
 	}
+#endif
 	return ShowRegError(ls);
 }
 
