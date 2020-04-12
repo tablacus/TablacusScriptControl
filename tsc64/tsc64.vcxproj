@@ -140,6 +140,9 @@
   <ItemGroup>
     <ResourceCompile Include="tsc64.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Midl Include="tsc64.idl" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

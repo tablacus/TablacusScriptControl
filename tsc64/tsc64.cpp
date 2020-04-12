@@ -9,9 +9,11 @@
 #ifdef _WIN64
 const TCHAR g_szProgid[] = TEXT("MSScriptControl.ScriptControl");
 const TCHAR g_szClsid[] = TEXT("{0E59F1D5-1FBE-11D0-8FF2-00A0D10038BC}");
+const TCHAR g_szLibid[] = TEXT("{0E59F1D2-1FBE-11D0-8FF2-00A0D10038BC}");
 #else
 const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 const TCHAR g_szClsid[] = TEXT("{760F48FE-E6E8-4d9d-AFD4-C7B393D4211F}");//test
+const TCHAR g_szLibid[] = TEXT("{956BC468-C878-4BB4-BB0B-ACA410002E31}");//test
 #endif
 
 const CLSID IID_IScriptControl = {0x0E59F1D3, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
@@ -1276,6 +1278,23 @@ STDAPI DllRegisterServer(void)
 	}
 	wsprintf(szKey, TEXT("%s\\CLSID"), g_szProgid);
 	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, const_cast<LPTSTR>(g_szClsid));
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
+	}
+	ITypeLib *pTypeLib;
+	HRESULT hr = LoadTypeLib(szModulePath, &pTypeLib);
+	if FAILED(hr) {
+		ShowRegError(hr);
+		return hr;
+	}
+	hr = RegisterTypeLib(pTypeLib, szModulePath, NULL);
+	if FAILED(hr) {
+		ShowRegError(hr);
+		return hr;
+	}
+	wsprintf(szKey, TEXT("CLSID\\%s\\TypeLib"), g_szClsid);
+	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, const_cast<LPTSTR>(g_szLibid));
+	pTypeLib->Release();
 	if (lr != ERROR_SUCCESS) {
 		return ShowRegError(lr);
 	}

@@ -1,0 +1,82 @@
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(0E59F1D3-1FBE-11D0-8FF2-00A0D10038BC),
+	dual
+]
+
+interface IScriptControl : IDispatch
+{
+	typedef enum {
+		Initialized = 0,
+		Connected = 1
+	} ScriptControlStates;
+
+	[id(0x000005dc), propget]
+    HRESULT Language([out, retval] BSTR* pbstrLanguage);
+    [id(0x000005dc), propput]
+    HRESULT Language([in] BSTR pbstrLanguage);
+    [id(0x000005dd), propget]
+    HRESULT State([out, retval] ScriptControlStates* pssState);
+    [id(0x000005dd), propput]
+    HRESULT State([in] ScriptControlStates pssState);
+    [id(0x000005de), propput]
+    HRESULT SitehWnd([in] long phwnd);
+    [id(0x000005de), propget]
+    HRESULT SitehWnd([out, retval] long* phwnd);
+    [id(0x000005df), propget]
+    HRESULT Timeout([out, retval] long* plMilleseconds);
+    [id(0x000005df), propput]
+    HRESULT Timeout([in] long plMilleseconds);
+    [id(0x000005e0), propget]
+    HRESULT AllowUI([out, retval] VARIANT_BOOL* pfAllowUI);
+    [id(0x000005e0), propput]
+    HRESULT AllowUI([in] VARIANT_BOOL pfAllowUI);
+    [id(0x000005e1), propget]
+    HRESULT UseSafeSubset([out, retval] VARIANT_BOOL* pfUseSafeSubset);
+    [id(0x000005e1), propput]
+    HRESULT UseSafeSubset([in] VARIANT_BOOL pfUseSafeSubset);
+    [id(0x000005e2), propget]
+    HRESULT Modules([out, retval] IDispatch** ppmods);
+    [id(0x000005e3), propget]
+    HRESULT Error([out, retval] IDispatch** ppse);
+    [id(0x000003e8), propget]
+    HRESULT CodeObject([out, retval] IDispatch** ppdispObject);
+    [id(0x000003e9), propget]
+    HRESULT Procedures([out, retval] IDispatch** ppdispProcedures);
+    [id(0xfffffdd8), hidden]
+    HRESULT _AboutBox();
+    [id(0x000009c4)]
+    HRESULT AddObject(
+                    [in] BSTR Name, 
+                    [in] IDispatch* Object, 
+                    [in, optional, defaultvalue(0)] VARIANT_BOOL AddMembers);
+    [id(0x000009c5)]
+    HRESULT Reset();
+    [id(0x000007d0)]
+    HRESULT AddCode([in] BSTR Code);
+    [id(0x000007d1)]
+    HRESULT Eval(
+                    [in] BSTR Expression, 
+                    [out, retval] VARIANT* pvarResult);
+    [id(0x000007d2)]
+    HRESULT ExecuteStatement([in] BSTR Statement);
+    [id(0x000007d3), vararg]
+    HRESULT Run(
+                    [in] BSTR ProcedureName, 
+                    [in] SAFEARRAY(VARIANT)* Parameters, 
+                    [out, retval] VARIANT* pvarResult);
+};
+
+// Type library
+[
+    version(1.0),
+	uuid(0E59F1D2-1FBE-11D0-8FF2-00A0D10038BC),
+]
+library IScriptControl
+{
+	importlib("stdole32.tlb");
+	interface IScriptControl;
+};

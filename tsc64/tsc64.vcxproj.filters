@@ -37,4 +37,9 @@
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Midl Include="tsc64.idl">
+      <Filter>Header Files</Filter>
+    </Midl>
+  </ItemGroup>
 </Project>

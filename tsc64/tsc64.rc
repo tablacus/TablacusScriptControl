@@ -33,3 +33,4 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
         VALUE "Translation", 0x0400, 0xFDE9
     }
 }
+1 typelib x64\Release\tsc64.tlb
