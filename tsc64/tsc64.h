@@ -173,7 +173,8 @@ public:
 	VOID Clear();
 	HRESULT SetScriptError(int n);
 
-	VARIANT_BOOL AllowUI;
+	VARIANT_BOOL m_fAllowUI;
+	VARIANT_BOOL m_fUseSafeSubset;
 private:
 	LONG   m_cRef;
 	BSTR m_bsLang;

@@ -10,15 +10,16 @@
 const TCHAR g_szProgid[] = TEXT("MSScriptControl.ScriptControl");
 const TCHAR g_szClsid[] = TEXT("{0E59F1D5-1FBE-11D0-8FF2-00A0D10038BC}");
 const TCHAR g_szLibid[] = TEXT("{0E59F1D2-1FBE-11D0-8FF2-00A0D10038BC}");
+const CLSID LIBID_TScriptControl = {0x0E59F1D2, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
 #else
 const TCHAR g_szProgid[] = TEXT("Tablacus.ScriptControl");
 const TCHAR g_szClsid[] = TEXT("{760F48FE-E6E8-4d9d-AFD4-C7B393D4211F}");//test
 const TCHAR g_szLibid[] = TEXT("{956BC468-C878-4BB4-BB0B-ACA410002E31}");//test
+const CLSID LIBID_TScriptControl = {0x956BC468, 0xC878, 0x4BB4, {0xBB, 0x0B, 0xAC, 0xA4, 0x10, 0x00, 0x2E, 0x31}};//test
 #endif
 
 const CLSID IID_IScriptControl = {0x0E59F1D3, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
 const CLSID DIID_DScriptControlSource = {0x8B167D60, 0x8605, 0x11D0, {0xAB, 0xCB, 0x00, 0xA0, 0xC9, 0x0F, 0xFF, 0xC0}};
-const CLSID LIBID_TScriptControl = {0x0E59F1D2, 0x1FBE, 0x11D0, {0x8F, 0xF2, 0x00, 0xA0, 0xD1, 0x00, 0x38, 0xBC}};
 
 LONG      g_lLocks = 0;
 HINSTANCE g_hinstDll = NULL;
@@ -639,7 +640,13 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 			break;
 		//UseSafeSubset
 		case 1505:
-			hr = S_OK;
+			if (nArg >= 0) {
+				hr = put_UseSafeSubset(GetIntFromVariant(&pDispParams->rgvarg[nArg]));
+			}
+			if (pVarResult) {
+				hr = get_UseSafeSubset(&pVarResult->boolVal);
+				pVarResult->vt = VT_BOOL;
+			}
 			break;
 		//Modules
 		case 1506:
@@ -795,24 +802,26 @@ STDMETHODIMP CTScriptControl::put_Timeout(long lMilleseconds)
 
 STDMETHODIMP CTScriptControl::get_AllowUI(VARIANT_BOOL * pfAllowUI)
 {
-	*pfAllowUI = AllowUI;
+	*pfAllowUI = m_fAllowUI;
 	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::put_AllowUI(VARIANT_BOOL  fAllowUI)
 {
-	AllowUI = fAllowUI;
+	m_fAllowUI = fAllowUI;
 	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::get_UseSafeSubset(VARIANT_BOOL * pfUseSafeSubset)
 {
-	return E_NOTIMPL;
+	*pfUseSafeSubset = m_fUseSafeSubset;
+	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::put_UseSafeSubset(VARIANT_BOOL pfUseSafeSubset)
 {
-	return E_NOTIMPL;
+	m_fUseSafeSubset = pfUseSafeSubset;
+	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::get_Modules(struct IScriptModuleCollection ** ppmods)
@@ -886,6 +895,8 @@ VOID CTScriptControl::Clear()
 	m_pObjectEx = NULL;
 	m_pCode = NULL;
 	m_hwnd.hwnd = NULL;
+	m_fAllowUI = VARIANT_FALSE;
+	m_fUseSafeSubset = VARIANT_FALSE;
 }
 
 HRESULT CTScriptControl::SetScriptError(int n)
@@ -1253,7 +1264,7 @@ STDAPI DllRegisterServer(void)
 	TCHAR szKey[256];
 
 	wsprintf(szKey, TEXT("CLSID\\%s"), g_szClsid);
-	LSTATUS lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, const_cast<LPTSTR>(g_szProgid));
+	LSTATUS lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, TEXT("ScriptControl Object"));
 	if (lr != ERROR_SUCCESS) {
 		return ShowRegError(lr);
 	}
@@ -1288,13 +1299,18 @@ STDAPI DllRegisterServer(void)
 		return hr;
 	}
 	hr = RegisterTypeLib(pTypeLib, szModulePath, NULL);
+	pTypeLib->Release();
 	if FAILED(hr) {
 		ShowRegError(hr);
 		return hr;
 	}
 	wsprintf(szKey, TEXT("CLSID\\%s\\TypeLib"), g_szClsid);
 	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, const_cast<LPTSTR>(g_szLibid));
-	pTypeLib->Release();
+	if (lr != ERROR_SUCCESS) {
+		return ShowRegError(lr);
+	}
+	wsprintf(szKey, TEXT("CLSID\\%s\\Version"), g_szClsid);
+	lr = CreateRegistryKey(HKEY_CLASSES_ROOT, szKey, NULL, TEXT("1.0"));
 	if (lr != ERROR_SUCCESS) {
 		return ShowRegError(lr);
 	}
@@ -1626,7 +1642,7 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 		pscripterror->GetSourcePosition(&dwSourceContext, &m_pSC->m_pError->m_ulLine, &m_pSC->m_pError->m_lColumn);
 		teSysFreeString(&m_pSC->m_pError->m_bsText);
 		pscripterror->GetSourceLineText(&m_pSC->m_pError->m_bsText);
-/*		if (this->m_pSC->AllowUI)
+/*		if (this->m_pSC->m_pAllowUI)
 		{
 			TCHAR szMessage[65536];
 			wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), m_pSC->m_pError->m_ulLine, m_pSC->m_pError->m_lColumn, pei->bstrDescription, pei->scode);
