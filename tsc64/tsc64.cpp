@@ -399,7 +399,7 @@ CTScriptControl::CTScriptControl()
 	m_bsLang = NULL;
 	m_pClientSite = NULL;
 	m_pTypeInfo = NULL;
-	AllowUI = FALSE;
+	m_pEventSink = NULL;
 	if SUCCEEDED(LoadRegTypeLib(LIBID_TScriptControl, 1, 0, 0, &pTypeLib)) {
 		pTypeLib->GetTypeInfoOfGuid(IID_IScriptControl, &m_pTypeInfo);
 		pTypeLib->Release();
@@ -416,6 +416,7 @@ CTScriptControl::~CTScriptControl()
 	SafeRelease(&m_pClientSite);
 	SafeRelease(&m_pTypeInfo);
 	SafeRelease(&m_pError);
+	SafeRelease(&m_pEventSink);
 	LockModule(FALSE);
 }
 
@@ -537,6 +538,8 @@ STDMETHODIMP CTScriptControl::QueryInterface(REFIID riid, void **ppvObject)
 		QITABENT(CTScriptControl, IOleObject),
 		QITABENT(CTScriptControl, IOleControl),
 		QITABENT(CTScriptControl, IPersistStreamInit),
+		QITABENT(CTScriptControl, IConnectionPointContainer),
+		QITABENT(CTScriptControl, IConnectionPoint),
 		{ 0 },
 	};
 #pragma warning(pop)
@@ -738,8 +741,17 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 				VariantClear(&v);
 			}
 			break;
-		//this
-		case DISPID_VALUE:
+		//DIID_DScriptControlSource
+/*		case 3000://Error
+		case 3001://Timeout
+			if (m_pEventSink) {
+				hr = m_pEventSink->Invoke(dispIdMember, riid, lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
+			} else {
+				hr = DISP_E_MEMBERNOTFOUND;
+			}
+			break;*/
+			
+		case DISPID_VALUE://this
 			teSetObject(pVarResult, this);
 			hr = S_OK;
 			break;
@@ -927,6 +939,7 @@ STDMETHODIMP CTScriptControl::raw_Reset()
 	SafeRelease(&m_pObject);
 	SafeRelease(&m_pJS);
 	SafeRelease(&m_pActiveScript);
+	SafeRelease(&m_pEventSink);
 	Clear();
 	return m_bsLang ? S_OK : SetScriptError(1024);
 }
@@ -1069,12 +1082,12 @@ STDMETHODIMP CTScriptControl::Advise(IAdviseSink *pAdvSink, DWORD *pdwConnection
 {
 	return E_NOTIMPL;
 }
-
+/* 
 STDMETHODIMP CTScriptControl::Unadvise(DWORD dwConnection)
 {
 	return E_NOTIMPL;
 }
-
+*/
 STDMETHODIMP CTScriptControl::EnumAdvise(IEnumSTATDATA **ppenumAdvise)
 {
 	return E_NOTIMPL;
@@ -1114,6 +1127,56 @@ STDMETHODIMP CTScriptControl::OnAmbientPropertyChange(DISPID dispID)
 }
 
 STDMETHODIMP CTScriptControl::FreezeEvents(BOOL bFreeze)
+{
+	return E_NOTIMPL;
+}
+
+//IConnectionPointContainer
+STDMETHODIMP CTScriptControl::EnumConnectionPoints(IEnumConnectionPoints **ppEnum)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::FindConnectionPoint(REFIID riid, IConnectionPoint **ppCP)
+{
+	return QueryInterface(IID_PPV_ARGS(ppCP));
+}
+
+//IConnectionPoint
+STDMETHODIMP CTScriptControl::GetConnectionInterface(IID *pIID)
+{
+	return E_NOTIMPL;
+}
+
+STDMETHODIMP CTScriptControl::GetConnectionPointContainer(IConnectionPointContainer **ppCPC)
+{
+	return QueryInterface(IID_PPV_ARGS(ppCPC));
+}
+
+STDMETHODIMP CTScriptControl::Advise(IUnknown *pUnkSink, DWORD *pdwCookie)
+{
+	if (!pdwCookie) {
+		return E_POINTER;
+	}
+	SafeRelease(&m_pEventSink);
+	pUnkSink->QueryInterface(IID_PPV_ARGS(&m_pEventSink));
+	if (m_pEventSink) {
+		*pdwCookie = EVENT_COOKIE;
+		return S_OK;
+	}
+	return E_FAIL;
+}
+
+STDMETHODIMP CTScriptControl::Unadvise(DWORD dwCookie)
+{
+	if (dwCookie == EVENT_COOKIE) {
+		SafeRelease(&m_pEventSink);
+		return S_OK;
+	}
+	return E_FAIL;
+}
+
+STDMETHODIMP CTScriptControl::EnumConnections(IEnumConnections **ppEnum)
 {
 	return E_NOTIMPL;
 }
@@ -1642,18 +1705,13 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 		pscripterror->GetSourcePosition(&dwSourceContext, &m_pSC->m_pError->m_ulLine, &m_pSC->m_pError->m_lColumn);
 		teSysFreeString(&m_pSC->m_pError->m_bsText);
 		pscripterror->GetSourceLineText(&m_pSC->m_pError->m_bsText);
-/*		if (this->m_pSC->m_pAllowUI)
-		{
-			TCHAR szMessage[65536];
-			wsprintf(szMessage, TEXT("Line: %d\nCharacter: %d\nError: %s\nCode: %X\nSource: "), m_pSC->m_pError->m_ulLine, m_pSC->m_pError->m_lColumn, pei->bstrDescription, pei->scode);
-			int nLen = lstrlen(szMessage);
-			lstrcpyn(&szMessage[nLen], pei->bstrSource, 65536 - nLen);
-			MessageBox(NULL, szMessage, TITLE, MB_OK | MB_ICONERROR);
+		if (m_pSC->m_pEventSink) {
+			VARIANT v;
+			VariantInit(&v);
+			if (Invoke5(m_pSC->m_pEventSink, 3000, DISPATCH_METHOD, &v, 0, NULL) == S_OK) {
+				VariantClear(&v);
+			}
 		}
-		else
-		{
-//			throw pscripterror;
-		}*/
 		if (m_pSC->m_pEI) {
 			if SUCCEEDED(pscripterror->GetExceptionInfo(m_pSC->m_pEI)) {
 				m_pSC->m_hr = DISP_E_EXCEPTION;

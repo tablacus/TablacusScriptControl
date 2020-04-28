@@ -12,6 +12,7 @@ using namespace MSScriptControl;
 #define DISPID_TE_COUNT 0x3ffffffe
 #define DISPID_TE_INDEX 0x3ffffffd
 #define DISPID_TE_MAX TE_VI
+#define EVENT_COOKIE 100
 
 union TUHWND {
 	long l[2];
@@ -89,13 +90,15 @@ private:
 
 class CTScriptControl : public IScriptControl,
 	public IOleObject, public IPersistStreamInit,
-	public IOleControl
+	public IOleControl,
+	public IConnectionPointContainer, IConnectionPoint
 {
 public:
 	TUHWND m_hwnd;
 	CTScriptError *m_pError;
 	EXCEPINFO *m_pEI;
 	HRESULT m_hr;
+	IDispatch *m_pEventSink;
 	//IUnknown
 	STDMETHODIMP QueryInterface(REFIID riid, void **ppvObject);
 	STDMETHODIMP_(ULONG) AddRef();
@@ -147,7 +150,7 @@ public:
 	STDMETHODIMP SetExtent(DWORD dwDrawAspect, SIZEL *psizel);
 	STDMETHODIMP GetExtent(DWORD dwDrawAspect, SIZEL *psizel);
 	STDMETHODIMP Advise(IAdviseSink *pAdvSink, DWORD *pdwConnection);
-	STDMETHODIMP Unadvise(DWORD dwConnection);
+//	STDMETHODIMP Unadvise(DWORD dwConnection);
 	STDMETHODIMP EnumAdvise(IEnumSTATDATA **ppenumAdvise);
 	STDMETHODIMP GetMiscStatus(DWORD dwAspect, DWORD *pdwStatus);
 	STDMETHODIMP SetColorScheme(LOGPALETTE *pLogpal);
@@ -164,6 +167,15 @@ public:
 	STDMETHODIMP OnMnemonic(MSG *pMsg);
 	STDMETHODIMP OnAmbientPropertyChange(DISPID dispID);
 	STDMETHODIMP FreezeEvents(BOOL bFreeze);
+	//IConnectionPointContainer
+	STDMETHODIMP EnumConnectionPoints(IEnumConnectionPoints **ppEnum);
+	STDMETHODIMP FindConnectionPoint(REFIID riid, IConnectionPoint **ppCP);
+	//IConnectionPoint
+	STDMETHODIMP GetConnectionInterface(IID *pIID);
+	STDMETHODIMP GetConnectionPointContainer(IConnectionPointContainer **ppCPC);
+	STDMETHODIMP Advise(IUnknown *pUnkSink, DWORD *pdwCookie);
+	STDMETHODIMP Unadvise(DWORD dwCookie);
+	STDMETHODIMP EnumConnections(IEnumConnections **ppEnum);
 
 	CTScriptControl();
 	~CTScriptControl();
