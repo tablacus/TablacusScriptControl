@@ -388,6 +388,40 @@ VOID teVariantChangeType(__out VARIANTARG * pvargDest,
 	}
 }
 
+static void threadTimer(void *args)
+{
+	::OleInitialize(NULL);
+	TETimer *pCommon = (TETimer *)args;
+	try {
+		BOOL bAbort = FALSE;
+		if (WaitForSingleObject(pCommon->hEvent, pCommon->lTimeout) == WAIT_TIMEOUT) {
+			bAbort = MessageBox(NULL, L"Timeout!\nDo you want to stop?", TITLE, MB_YESNO) == IDYES;
+		}
+		if (::InterlockedDecrement(&pCommon->cRef)) {
+			if (bAbort) {
+				IActiveScript *pActiveScript;
+				if SUCCEEDED(CoGetInterfaceAndReleaseStream(pCommon->pStream, IID_PPV_ARGS(&pActiveScript))) {
+					EXCEPINFO ei;
+					HRESULT hr = pActiveScript->InterruptScriptThread(SCRIPTTHREADID_ALL, &ei, SCRIPTINTERRUPT_RAISEEXCEPTION);
+					pActiveScript->Release();
+					TCHAR szDebug[256];
+					wsprintf(szDebug, TEXT("Tablacus Script Abort: %x\n"), hr);
+					::OutputDebugString(szDebug);
+				}
+			} else {
+				pCommon->pStream->Release();
+			}
+		} else {
+			CloseHandle(pCommon->hEvent);
+			pCommon->pStream->Release();
+			delete pCommon;
+		}
+	} catch (...) {
+	}
+	::OleUninitialize();
+	::_endthread();
+}
+
 // CTScriptControl
 
 CTScriptControl::CTScriptControl()
@@ -424,12 +458,32 @@ HRESULT CTScriptControl::Exec(BSTR Expression,VARIANT * pvarResult, DWORD dwFlag
 {
 	m_hr = S_OK;
 	if (m_pActiveScript) {
+		TETimer *pCommon = NULL;
+		if (m_lTimeout) {
+			IStream *pStream;
+			if SUCCEEDED(CoMarshalInterThreadInterfaceInStream(IID_IActiveScript, m_pActiveScript, &pStream)) {
+				pCommon = new TETimer[1];
+				pCommon->pStream = pStream;
+				pCommon->cRef = 2;
+				pCommon->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+				pCommon->lTimeout = m_lTimeout;
+				_beginthread(&threadTimer, 0, pCommon);
+			}
+		}
 		IActiveScriptParse *pasp;
 		if SUCCEEDED(m_pActiveScript->QueryInterface(IID_PPV_ARGS(&pasp))) {
 			if (pasp->ParseScriptText(Expression, NULL, NULL, NULL, 0, 1, dwFlags, pvarResult, NULL) == S_OK) {
 				m_pActiveScript->SetScriptState(SCRIPTSTATE_CONNECTED);
 			}
 			pasp->Release();
+		}
+		if (pCommon) {
+			if (::InterlockedDecrement(&pCommon->cRef)) {
+				SetEvent(pCommon->hEvent);
+			} else {
+				CloseHandle(pCommon->hEvent);
+				delete pCommon;
+			}
 		}
 	} else {
 		ParseScript(Expression, m_bsLang, m_pObjectEx, &m_pCode, &m_pActiveScript, pvarResult, dwFlags);
@@ -461,6 +515,18 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 		CteActiveScriptSite *pass = new CteActiveScriptSite(pdex, this);
 		pas->SetScriptSite(pass);
 		pass->Release();
+		TETimer *pCommon = NULL;
+		if (m_lTimeout) {
+			IStream *pStream;
+			if SUCCEEDED(CoMarshalInterThreadInterfaceInStream(IID_IActiveScript, pas, &pStream)) {
+				pCommon = new TETimer[1];
+				pCommon->pStream = pStream;
+				pCommon->cRef = 2;
+				pCommon->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+				pCommon->lTimeout = m_lTimeout;
+				_beginthread(&threadTimer, 0, pCommon);
+			}
+		}
 		IActiveScriptParse *pasp;
 		if SUCCEEDED(pas->QueryInterface(IID_PPV_ARGS(&pasp))) {
 			hr = pasp->InitNew();
@@ -515,6 +581,14 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 		if (!ppdisp || !*ppdisp) {
 			pas->SetScriptState(SCRIPTSTATE_CLOSED);
 			pas->Close();
+		}
+		if (pCommon) {
+			if (::InterlockedDecrement(&pCommon->cRef)) {
+				SetEvent(pCommon->hEvent);
+			} else {
+				CloseHandle(pCommon->hEvent);
+				delete pCommon;
+			}
 		}
 		if (ppas) {
 			*ppas = pas;
@@ -780,12 +854,12 @@ STDMETHODIMP CTScriptControl::put_Language(BSTR pbstrLanguage)
 
 STDMETHODIMP CTScriptControl::get_State(enum ScriptControlStates *pssState)
 {
-	return m_pActiveScript->GetScriptState((SCRIPTSTATE *)pssState);
+	return m_pActiveScript ? m_pActiveScript->GetScriptState((SCRIPTSTATE *)pssState) : E_FAIL;
 }
 
 STDMETHODIMP CTScriptControl::put_State(enum ScriptControlStates ssState)
 {
-	return m_pActiveScript->SetScriptState((SCRIPTSTATE)ssState);
+	return m_pActiveScript ? m_pActiveScript->SetScriptState((SCRIPTSTATE)ssState) : E_FAIL;
 }
 
 STDMETHODIMP CTScriptControl::put_SitehWnd(long hwnd)
@@ -803,12 +877,13 @@ STDMETHODIMP CTScriptControl::get_SitehWnd(long *phwnd)
 
 STDMETHODIMP CTScriptControl::get_Timeout(long *plMilleseconds)
 {
-	*plMilleseconds = 0;
+	*plMilleseconds = m_lTimeout;
 	return S_OK;
 }
 
 STDMETHODIMP CTScriptControl::put_Timeout(long lMilleseconds)
 {
+	m_lTimeout = lMilleseconds;
 	return S_OK;
 }
 
@@ -907,8 +982,9 @@ VOID CTScriptControl::Clear()
 	m_pObjectEx = NULL;
 	m_pCode = NULL;
 	m_hwnd.hwnd = NULL;
-	m_fAllowUI = VARIANT_FALSE;
+	m_fAllowUI = VARIANT_TRUE;
 	m_fUseSafeSubset = VARIANT_FALSE;
+	m_lTimeout = 0;
 }
 
 HRESULT CTScriptControl::SetScriptError(int n)

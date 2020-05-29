@@ -3,6 +3,7 @@
 #include <shlwapi.h>
 #include <ActivScp.h>
 #include <DispEx.h>
+#include <process.h>
 #include <tchar.h>
 #import <msscript.ocx>
 using namespace MSScriptControl;
@@ -24,6 +25,15 @@ struct TEmethod
 {
 	LONG   id;
 	LPWSTR name;
+};
+
+struct TETimer
+{
+	IStream *pStream;
+	IActiveScript *pas;
+	HANDLE hEvent;
+	LONG   lTimeout;
+	LONG cRef;
 };
 
 class CteDispatch : public IDispatch, public IEnumVARIANT
@@ -185,8 +195,6 @@ public:
 	VOID Clear();
 	HRESULT SetScriptError(int n);
 
-	VARIANT_BOOL m_fAllowUI;
-	VARIANT_BOOL m_fUseSafeSubset;
 private:
 	LONG   m_cRef;
 	BSTR m_bsLang;
@@ -197,6 +205,9 @@ private:
 	IDispatch *m_pCode;
 	IOleClientSite *m_pClientSite;
 	ITypeInfo *m_pTypeInfo;
+	long m_lTimeout;
+	VARIANT_BOOL m_fAllowUI;
+	VARIANT_BOOL m_fUseSafeSubset;
 };
 
 class CteActiveScriptSite : public IActiveScriptSite, public IActiveScriptSiteWindow
