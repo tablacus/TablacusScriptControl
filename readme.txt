@@ -22,4 +22,4 @@ https://tablacus.github.io/scriptcontrol_en.html
 
 Build
 Visual C++ 2010 Express Edition SP1
-Windows SDK v7.1 
+
