@@ -1,7 +1,6 @@
 // Tablacus Script Control 64 (C)2014 Gaku
 // MIT Lisence
 // Visual C++ 2017 Express Edition
-// Windows SDK v7.1
 // https://tablacus.github.io/
 
 #include "tsc64.h"
@@ -1789,7 +1788,11 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 			}
 		}
 		if (m_pSC->m_pEI) {
-			if SUCCEEDED(pscripterror->GetExceptionInfo(m_pSC->m_pEI)) {
+			try {
+				if SUCCEEDED(pscripterror->GetExceptionInfo(m_pSC->m_pEI)) {
+					m_pSC->m_hr = DISP_E_EXCEPTION;
+				}
+			} catch (...) {
 				m_pSC->m_hr = DISP_E_EXCEPTION;
 			}
 		}
