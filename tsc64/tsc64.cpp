@@ -513,7 +513,6 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 		}
 		CteActiveScriptSite *pass = new CteActiveScriptSite(pdex, this);
 		pas->SetScriptSite(pass);
-		pass->Release();
 		TETimer *pCommon = NULL;
 		if (m_lTimeout) {
 			IStream *pStream;
@@ -576,6 +575,11 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 				}
 			}
 			pasp->Release();
+			pass->m_pSC = NULL;
+			if (pass->m_hr != S_OK) {
+				hr = pass->m_hr;
+			}
+			pass->Release();
 		}
 		if (!ppdisp || !*ppdisp) {
 			pas->SetScriptState(SCRIPTSTATE_CLOSED);
@@ -1679,14 +1683,11 @@ CteActiveScriptSite::CteActiveScriptSite(IUnknown *punk, CTScriptControl *pSC)
 {
 	m_cRef = 1;
 	m_pDispatchEx = NULL;
-	m_pSC = NULL;
+	m_pSC = pSC;
 	if (punk) {
 		punk->QueryInterface(IID_PPV_ARGS(&m_pDispatchEx));
 	}
-	if (pSC) {
-		pSC->AddRef();
-		m_pSC = pSC;
-	}
+	m_hr = S_OK;
 }
 
 CteActiveScriptSite::~CteActiveScriptSite()
@@ -1773,9 +1774,13 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	if (!pscripterror) {
 		return E_POINTER;
 	}
+	if (!m_pSC) {
+		return S_OK;
+	}
 	EXCEPINFO *pei = &m_pSC->m_pError->m_EI;
 	teClearExceptInfo(pei);
 	if SUCCEEDED(pscripterror->GetExceptionInfo(pei)) {
+		m_hr = pei->scode;
 		DWORD dwSourceContext = 0;
 		pscripterror->GetSourcePosition(&dwSourceContext, &m_pSC->m_pError->m_ulLine, &m_pSC->m_pError->m_lColumn);
 		teSysFreeString(&m_pSC->m_pError->m_bsText);

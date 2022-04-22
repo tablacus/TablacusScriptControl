@@ -237,6 +237,7 @@ public:
 public:
 	IDispatchEx	*m_pDispatchEx;
 	CTScriptControl *m_pSC;
+	HRESULT m_hr;
 	LONG		m_cRef;
 };
 
