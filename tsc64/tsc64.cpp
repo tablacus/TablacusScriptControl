@@ -922,6 +922,7 @@ STDMETHODIMP CTScriptControl::get_Modules(struct IScriptModuleCollection ** ppmo
 STDMETHODIMP CTScriptControl::get_Error(struct IScriptError ** ppse)
 {
 	*ppse = m_pError;
+	m_pError->AddRef();
 	return S_OK;
 }
 
