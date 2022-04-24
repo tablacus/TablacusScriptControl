@@ -1021,6 +1021,7 @@ STDMETHODIMP CTScriptControl::raw_Reset()
 	SafeRelease(&m_pActiveScript);
 	SafeRelease(&m_pEventSink);
 	Clear();
+	m_pError->raw_Clear();
 	return m_bsLang ? S_OK : SetScriptError(1024);
 }
 
@@ -1782,6 +1783,7 @@ STDMETHODIMP CteActiveScriptSite::OnScriptError(IActiveScriptError *pscripterror
 	teClearExceptInfo(pei);
 	if SUCCEEDED(pscripterror->GetExceptionInfo(pei)) {
 		m_hr = pei->scode;
+		m_pSC->m_hr = m_hr;
 		DWORD dwSourceContext = 0;
 		pscripterror->GetSourcePosition(&dwSourceContext, &m_pSC->m_pError->m_ulLine, &m_pSC->m_pError->m_lColumn);
 		teSysFreeString(&m_pSC->m_pError->m_bsText);
