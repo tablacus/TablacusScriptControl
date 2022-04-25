@@ -1370,7 +1370,8 @@ STDMETHODIMP_(ULONG) CTScriptObject::Release()
 CTScriptObject::CTScriptObject(IDispatch *pObject, VARIANT_BOOL bAddMembers)
 {
 	m_cRef = 1;
-	pObject->QueryInterface(IID_PPV_ARGS(&m_pObject));
+	m_pObject = pObject;
+	m_pObject->AddRef();
 	m_bAddMembers = bAddMembers;
 }
 
@@ -1686,6 +1687,7 @@ CteActiveScriptSite::CteActiveScriptSite(IUnknown *punk, CTScriptControl *pSC)
 	m_cRef = 1;
 	m_pDispatchEx = NULL;
 	m_pSC = pSC;
+	m_pSC->AddRef();
 	if (punk) {
 		punk->QueryInterface(IID_PPV_ARGS(&m_pDispatchEx));
 	}
