@@ -57,7 +57,7 @@ TEmethod methodTSE[] = {
 	//property
 	{ 0x000000c9, L"Number" },
 	{ 0x000000ca, L"Source" },
-	{ 0x000000cc, L"Description" },
+	{ 0x000000cb, L"Description" },
 	{ 0x000000cd, L"HelpContext" },
 	{ 0xfffffdfb, L"Text" },
 	{ 0x000000ce, L"Line" },
@@ -575,7 +575,7 @@ HRESULT CTScriptControl::ParseScript(LPOLESTR lpScript, LPOLESTR lpLang, IDispat
 				}
 			}
 			pasp->Release();
-			pass->m_pSC = NULL;
+			//pass->m_pSC = NULL;
 			if (pass->m_hr != S_OK) {
 				hr = pass->m_hr;
 			}
@@ -1921,7 +1921,7 @@ STDMETHODIMP CTScriptError::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid, 
 			}
 			return S_OK;
 		//Description
-		case 0x000000cc:
+		case 0x000000cb:
 			if (pVarResult) {
 				pVarResult->vt = VT_BSTR;
 				return get_Description(&pVarResult->bstrVal);
