@@ -433,6 +433,7 @@ CTScriptControl::CTScriptControl()
 	m_pClientSite = NULL;
 	m_pTypeInfo = NULL;
 	m_pEventSink = NULL;
+	m_pEI = NULL;
 	if SUCCEEDED(LoadRegTypeLib(LIBID_TScriptControl, 1, 0, 0, &pTypeLib)) {
 		pTypeLib->GetTypeInfoOfGuid(IID_IScriptControl, &m_pTypeInfo);
 		pTypeLib->Release();
