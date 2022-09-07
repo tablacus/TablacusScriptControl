@@ -433,6 +433,7 @@ CTScriptControl::CTScriptControl()
 	m_pClientSite = NULL;
 	m_pTypeInfo = NULL;
 	m_pEventSink = NULL;
+	m_pEI = NULL;
 	if SUCCEEDED(LoadRegTypeLib(LIBID_TScriptControl, 1, 0, 0, &pTypeLib)) {
 		pTypeLib->GetTypeInfoOfGuid(IID_IScriptControl, &m_pTypeInfo);
 		pTypeLib->Release();
@@ -1049,12 +1050,14 @@ STDMETHODIMP CTScriptControl::raw_Run(BSTR ProcedureName, SAFEARRAY ** Parameter
 	if (*Parameters) {
 		::SafeArrayGetUBound(*Parameters, 1, &nArg);
 		nArg++;
-		pv2 = GetNewVARIANT(nArg);
-		if (::SafeArrayAccessData(*Parameters, (LPVOID *)&pv) == S_OK) {
-			for (int i = nArg; i--;) {
-				pv2[nArg - i - 1] = pv[i];
+		if (nArg) {
+			pv2 = GetNewVARIANT(nArg);
+			if (::SafeArrayAccessData(*Parameters, (LPVOID *)&pv) == S_OK) {
+				for (int i = nArg; i--;) {
+					pv2[nArg - i - 1] = pv[i];
+				}
+				::SafeArrayUnaccessData(*Parameters);
 			}
-			::SafeArrayUnaccessData(*Parameters);
 		}
 	}
 	DISPID dispid;
