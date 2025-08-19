@@ -759,14 +759,13 @@ STDMETHODIMP CTScriptControl::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid
 		case 2500:
 			if (nArg >= 1) {
 				teVariantChangeType(&v, &pDispParams->rgvarg[nArg], VT_BSTR);
+				IDispatch *pdisp = NULL;
 				IUnknown *punk;
 				if (FindUnknown(&pDispParams->rgvarg[nArg - 1], &punk)) {
-					IDispatch *pdisp;
-					if SUCCEEDED(punk->QueryInterface(IID_PPV_ARGS(&pdisp))) {
-						hr = raw_AddObject(v.bstrVal, pdisp, nArg >= 2 && GetIntFromVariant(&pDispParams->rgvarg[nArg - 2]));
-						pdisp->Release();
-					}
+					punk->QueryInterface(IID_PPV_ARGS(&pdisp));
 				}
+				hr = raw_AddObject(v.bstrVal, pdisp, nArg >= 2 && GetIntFromVariant(&pDispParams->rgvarg[nArg - 2]));
+				SafeRelease(&pdisp);
 			}
 			break;
 		//Reset
@@ -966,8 +965,13 @@ STDMETHODIMP CTScriptControl::raw_AddObject(BSTR Name, IDispatch * Object, VARIA
 		VariantClear(&v);
 	}
 	if (m_pObjectEx->GetDispID(Name, fdexNameEnsure, &dispid) == S_OK) {
-		v.punkVal = new CTScriptObject(Object, AddMembers);
-		v.vt = VT_UNKNOWN;
+		if (Object) {
+			v.punkVal = new CTScriptObject(Object, AddMembers);
+			v.vt = VT_UNKNOWN;
+		} else {
+			v.punkVal = NULL;
+			v.vt = VT_NULL;
+		}
 		DISPID dispidName = DISPID_PROPERTYPUT;
 		DISPPARAMS args;
 		args.cArgs = 1;
