@@ -70,6 +70,40 @@ interface IScriptControl : IDispatch
                     [out, retval] VARIANT* pvarResult);
 };
 
+// Error object. Declared here (with its real msscript.ocx IID) so the type
+// library describes it. RegisterTypeLib then registers an oleautomation
+// marshaler for {70841C78-...}, which lets the strongly-typed IScriptError /
+// Error interface be marshaled across COM apartments (e.g. an STA-created
+// object consumed from a host running on an MTA thread). Members are listed in
+// the exact vtable order implemented by CTScriptError.
+[
+	object,
+	uuid(70841C78-067D-11D0-95D8-00A02463AB28),
+	dual,
+	oleautomation
+]
+interface IScriptError : IDispatch
+{
+	[id(0x000000c9), propget]
+	HRESULT Number([out, retval] long* plNumber);
+	[id(0x000000ca), propget]
+	HRESULT Source([out, retval] BSTR* pbstrSource);
+	[id(0x000000cb), propget]
+	HRESULT Description([out, retval] BSTR* pbstrDescription);
+	[id(0x000000cc), propget]
+	HRESULT HelpFile([out, retval] BSTR* pbstrHelpFile);
+	[id(0x000000cd), propget]
+	HRESULT HelpContext([out, retval] long* plHelpContext);
+	[id(0xfffffdfb), propget]
+	HRESULT Text([out, retval] BSTR* pbstrText);
+	[id(0x000000ce), propget]
+	HRESULT Line([out, retval] long* plLine);
+	[id(0xfffffdef), propget]
+	HRESULT Column([out, retval] long* plColumn);
+	[id(0x000000d0)]
+	HRESULT Clear();
+};
+
 // Type library
 [
     version(1.0),
@@ -79,4 +113,5 @@ library IScriptControl
 {
 	importlib("stdole32.tlb");
 	interface IScriptControl;
+	interface IScriptError;
 };
