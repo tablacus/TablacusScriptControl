@@ -4,7 +4,7 @@
 
 
  /* File created by MIDL compiler version 8.00.0603 */
-/* at Tue Jun 08 21:30:00 2021
+/* at Thu Aug 06 21:32:39 2026
  */
 /* Compiler settings for tsc64.idl:
     Oicf, W1, Zp8, env=Win64 (32b run), target_arch=AMD64 8.00.0603 
@@ -52,11 +52,25 @@ typedef interface IScriptControl IScriptControl;
 #endif 	/* __IScriptControl_FWD_DEFINED__ */
 
 
+#ifndef __IScriptError_FWD_DEFINED__
+#define __IScriptError_FWD_DEFINED__
+typedef interface IScriptError IScriptError;
+
+#endif 	/* __IScriptError_FWD_DEFINED__ */
+
+
 #ifndef __IScriptControl_FWD_DEFINED__
 #define __IScriptControl_FWD_DEFINED__
 typedef interface IScriptControl IScriptControl;
 
 #endif 	/* __IScriptControl_FWD_DEFINED__ */
+
+
+#ifndef __IScriptError_FWD_DEFINED__
+#define __IScriptError_FWD_DEFINED__
+typedef interface IScriptError IScriptError;
+
+#endif 	/* __IScriptError_FWD_DEFINED__ */
 
 
 /* header files for imported files */
@@ -431,12 +445,221 @@ EXTERN_C const IID IID_IScriptControl;
 #endif 	/* __IScriptControl_INTERFACE_DEFINED__ */
 
 
+#ifndef __IScriptError_INTERFACE_DEFINED__
+#define __IScriptError_INTERFACE_DEFINED__
+
+/* interface IScriptError */
+/* [oleautomation][dual][uuid][object] */ 
+
+
+EXTERN_C const IID IID_IScriptError;
+
+#if defined(__cplusplus) && !defined(CINTERFACE)
+    
+    MIDL_INTERFACE("70841C78-067D-11D0-95D8-00A02463AB28")
+    IScriptError : public IDispatch
+    {
+    public:
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Number( 
+            /* [retval][out] */ long *plNumber) = 0;
+        
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Source( 
+            /* [retval][out] */ BSTR *pbstrSource) = 0;
+        
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Description( 
+            /* [retval][out] */ BSTR *pbstrDescription) = 0;
+        
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_HelpFile( 
+            /* [retval][out] */ BSTR *pbstrHelpFile) = 0;
+        
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_HelpContext( 
+            /* [retval][out] */ long *plHelpContext) = 0;
+        
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Text( 
+            /* [retval][out] */ BSTR *pbstrText) = 0;
+        
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Line( 
+            /* [retval][out] */ long *plLine) = 0;
+        
+        virtual /* [propget][id] */ HRESULT STDMETHODCALLTYPE get_Column( 
+            /* [retval][out] */ long *plColumn) = 0;
+        
+        virtual /* [id] */ HRESULT STDMETHODCALLTYPE Clear( void) = 0;
+        
+    };
+    
+    
+#else 	/* C style interface */
+
+    typedef struct IScriptErrorVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IScriptError * This,
+            /* [in] */ REFIID riid,
+            /* [annotation][iid_is][out] */ 
+            _COM_Outptr_  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IScriptError * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IScriptError * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetTypeInfoCount )( 
+            IScriptError * This,
+            /* [out] */ UINT *pctinfo);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetTypeInfo )( 
+            IScriptError * This,
+            /* [in] */ UINT iTInfo,
+            /* [in] */ LCID lcid,
+            /* [out] */ ITypeInfo **ppTInfo);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetIDsOfNames )( 
+            IScriptError * This,
+            /* [in] */ REFIID riid,
+            /* [size_is][in] */ LPOLESTR *rgszNames,
+            /* [range][in] */ UINT cNames,
+            /* [in] */ LCID lcid,
+            /* [size_is][out] */ DISPID *rgDispId);
+        
+        /* [local] */ HRESULT ( STDMETHODCALLTYPE *Invoke )( 
+            IScriptError * This,
+            /* [annotation][in] */ 
+            _In_  DISPID dispIdMember,
+            /* [annotation][in] */ 
+            _In_  REFIID riid,
+            /* [annotation][in] */ 
+            _In_  LCID lcid,
+            /* [annotation][in] */ 
+            _In_  WORD wFlags,
+            /* [annotation][out][in] */ 
+            _In_  DISPPARAMS *pDispParams,
+            /* [annotation][out] */ 
+            _Out_opt_  VARIANT *pVarResult,
+            /* [annotation][out] */ 
+            _Out_opt_  EXCEPINFO *pExcepInfo,
+            /* [annotation][out] */ 
+            _Out_opt_  UINT *puArgErr);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_Number )( 
+            IScriptError * This,
+            /* [retval][out] */ long *plNumber);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_Source )( 
+            IScriptError * This,
+            /* [retval][out] */ BSTR *pbstrSource);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_Description )( 
+            IScriptError * This,
+            /* [retval][out] */ BSTR *pbstrDescription);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_HelpFile )( 
+            IScriptError * This,
+            /* [retval][out] */ BSTR *pbstrHelpFile);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_HelpContext )( 
+            IScriptError * This,
+            /* [retval][out] */ long *plHelpContext);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_Text )( 
+            IScriptError * This,
+            /* [retval][out] */ BSTR *pbstrText);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_Line )( 
+            IScriptError * This,
+            /* [retval][out] */ long *plLine);
+        
+        /* [propget][id] */ HRESULT ( STDMETHODCALLTYPE *get_Column )( 
+            IScriptError * This,
+            /* [retval][out] */ long *plColumn);
+        
+        /* [id] */ HRESULT ( STDMETHODCALLTYPE *Clear )( 
+            IScriptError * This);
+        
+        END_INTERFACE
+    } IScriptErrorVtbl;
+
+    interface IScriptError
+    {
+        CONST_VTBL struct IScriptErrorVtbl *lpVtbl;
+    };
+
+    
+
+#ifdef COBJMACROS
+
+
+#define IScriptError_QueryInterface(This,riid,ppvObject)	\
+    ( (This)->lpVtbl -> QueryInterface(This,riid,ppvObject) ) 
+
+#define IScriptError_AddRef(This)	\
+    ( (This)->lpVtbl -> AddRef(This) ) 
+
+#define IScriptError_Release(This)	\
+    ( (This)->lpVtbl -> Release(This) ) 
+
+
+#define IScriptError_GetTypeInfoCount(This,pctinfo)	\
+    ( (This)->lpVtbl -> GetTypeInfoCount(This,pctinfo) ) 
+
+#define IScriptError_GetTypeInfo(This,iTInfo,lcid,ppTInfo)	\
+    ( (This)->lpVtbl -> GetTypeInfo(This,iTInfo,lcid,ppTInfo) ) 
+
+#define IScriptError_GetIDsOfNames(This,riid,rgszNames,cNames,lcid,rgDispId)	\
+    ( (This)->lpVtbl -> GetIDsOfNames(This,riid,rgszNames,cNames,lcid,rgDispId) ) 
+
+#define IScriptError_Invoke(This,dispIdMember,riid,lcid,wFlags,pDispParams,pVarResult,pExcepInfo,puArgErr)	\
+    ( (This)->lpVtbl -> Invoke(This,dispIdMember,riid,lcid,wFlags,pDispParams,pVarResult,pExcepInfo,puArgErr) ) 
+
+
+#define IScriptError_get_Number(This,plNumber)	\
+    ( (This)->lpVtbl -> get_Number(This,plNumber) ) 
+
+#define IScriptError_get_Source(This,pbstrSource)	\
+    ( (This)->lpVtbl -> get_Source(This,pbstrSource) ) 
+
+#define IScriptError_get_Description(This,pbstrDescription)	\
+    ( (This)->lpVtbl -> get_Description(This,pbstrDescription) ) 
+
+#define IScriptError_get_HelpFile(This,pbstrHelpFile)	\
+    ( (This)->lpVtbl -> get_HelpFile(This,pbstrHelpFile) ) 
+
+#define IScriptError_get_HelpContext(This,plHelpContext)	\
+    ( (This)->lpVtbl -> get_HelpContext(This,plHelpContext) ) 
+
+#define IScriptError_get_Text(This,pbstrText)	\
+    ( (This)->lpVtbl -> get_Text(This,pbstrText) ) 
+
+#define IScriptError_get_Line(This,plLine)	\
+    ( (This)->lpVtbl -> get_Line(This,plLine) ) 
+
+#define IScriptError_get_Column(This,plColumn)	\
+    ( (This)->lpVtbl -> get_Column(This,plColumn) ) 
+
+#define IScriptError_Clear(This)	\
+    ( (This)->lpVtbl -> Clear(This) ) 
+
+#endif /* COBJMACROS */
+
+
+#endif 	/* C style interface */
+
+
+
+
+#endif 	/* __IScriptError_INTERFACE_DEFINED__ */
+
+
 
 #ifndef __IScriptControl_LIBRARY_DEFINED__
 #define __IScriptControl_LIBRARY_DEFINED__
 
 /* library IScriptControl */
 /* [uuid][version] */ 
+
 
 
 
